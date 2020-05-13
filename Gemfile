@@ -32,3 +32,7 @@ gem "wdm", "~> 0.1.1", :install_if => Gem.win_platform?
 gem "jekyll-email-protect", "~> 1.1"
 
 gem "jekyll-mentions"
+
+gem "jemoji", "~> 0.11.1"
+
+gem "rouge", "~> 3.13"
