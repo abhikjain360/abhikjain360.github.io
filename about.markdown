@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Abhik Jain
+title: About me
 permalink: /about/
 ---
 Hi!<br>
