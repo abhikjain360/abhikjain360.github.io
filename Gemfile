@@ -36,3 +36,5 @@ gem "jekyll-mentions"
 gem "jemoji", "~> 0.11.1"
 
 gem "rouge", "~> 3.13"
+
+gem "favicon", "~> 0.1.1"

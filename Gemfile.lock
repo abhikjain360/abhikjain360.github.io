@@ -28,6 +28,7 @@ GEM
     execjs (2.7.0)
     faraday (1.0.1)
       multipart-post (>= 1.2, < 3)
+    favicon (0.1.1)
     ffi (1.12.2)
     forwardable-extended (2.6.0)
     gemoji (3.0.1)
@@ -246,6 +247,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  favicon (~> 0.1.1)
   github-pages
   jekyll
   jekyll-email-protect (~> 1.1)
