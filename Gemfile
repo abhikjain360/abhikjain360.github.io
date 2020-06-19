@@ -28,3 +28,7 @@ end
 # Performance-booster for watching directories on Windows
 gem "wdm", "~> 0.1.1", :platforms => [:mingw, :x64_mingw, :mswin]
 
+
+gem "jemoji", "~> 0.12.0"
+
+gem "jekyll-email-protect", "~> 1.1"
