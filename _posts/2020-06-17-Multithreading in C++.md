@@ -16,8 +16,6 @@ I just go in depth and try do explain every bit of code I feel new C++ programme
 
 You can find my code for reference [here](https://github.com/abhikjain360/threadpool).
 
-In this first tutorial we will learn how to use threads in C++. If you already know that, jump to [Part 2](), where I discuss ```future``` standard library. If you also already know that and directly want to jump in threadpool, go to to [Part 3]().
-
 ### Why multithread?
 
 The answer is obvious. All modern (by modern I mean by all PCs and laptops since 2005) computers have more than one core, let's use them all! It's faster, and a better use of resources. There might be some cases where you can't run processes in parallel, like the new process depending upon the output of current one. But those are the odd ones. As we'll see, multithreading can outperform simple code even for small test cases.
