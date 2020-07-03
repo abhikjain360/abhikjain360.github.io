@@ -4,27 +4,33 @@ title: "Threadpooling in C++"
 author: "Abhik Jain"
 ---
 
-I wanted to use a threadpool for a certain project of mine, and there were a lot of implementations of them on github, but most of them were not simple, and there weren't many tutorials (_easy_ tutorials) that I could follow right up.
+I wanted to use a threadpool for a certain project of mine, and there were a lot of implementations of them on github, but many of them simply pasted the code with little explanation, and there weren't many tutorials (_easy_ tutorials) that I could follow right up.
 
 I eventually managed to make a simple one for myself, and is good enough for almost all personal projects I do. In this blog, I'll help you recreate my code, explaining stuff that someone who doesn't know much about threadpooling (and multithreading in general) can still follow. I do assume some familiarity with C++ coding, and also with some standard libraries like ```iostream``` and ```vector``` and concept of classes.
 
-This tutorial isn't meant for people looking for super-optimized multithreaded calculations. For that there are much better libraries available, like one [here](https://github.com/oneapi-src/oneTBB).
+This tutorial isn't meant for people looking for super-optimized multithreaded calculations. For that there are much better libraries out there.
 
-If you are wondering how it's different from other tutorials, well it's pretty much same really 😅.
-
-I just go in depth and try do explain every bit of code I feel new C++ programmers might not know. By the end you'll have made a simple but useful threadpool header file, which you can use practically anywhere. Your imagination is the limit!
+If you are wondering how it's different from other tutorials, well it's pretty much same really 😅. I just go in depth and try do explain every bit of code I feel new C++ programmers might not know. By the end you'll have made a simple but useful threadpool header file, which you can use practically anywhere.
 
 You can find my code for reference [here](https://github.com/abhikjain360/threadpool).
 
 ### Why multithread?
 
-The answer is obvious. All modern (by modern I mean by all PCs and laptops since 2005) computers have more than one core, let's use them all! It's faster, and a better use of resources. There might be some cases where you can't run processes in parallel, like the new process depending upon the output of current one. But those are the odd ones. As we'll see, multithreading can outperform simple code even for small test cases.
+The answer is obvious. All modern (by modern I mean by all PCs and laptops since 2005) computers have more than one core, let's use them all! It's faster, and a better use of resources. There might be some cases where you can't run processes in parallel, like the new process depending upon the output of current one. But those are the odd ones. As we'll see, multithreading can outperform simple code even for small test cases. There are many instances where algorithms by design are meant to be run in parallel (like matrix multiplication where each element of resultant matrix can be calculated independently of other, allowing us to compute then in parallel).
 
 ### Why use a threadpool?
 
 Though your CPU can run a lot more _virtual_ threads than number of cores it has, that doesn't mean all those threads run in parallel. Each new thread waits for previous threads to finish. If there are no _physical_ threads free, it'll have to wait. Also assigning these _virtual_ threads is a rather expensive task. It often happens that if we assign threads carelessly without bothering about how much threads are we actually creating, any benefit multithreading could provide would become insignificant compared to sheer cost of assigning so many threads.
 
 Threadpooling is creating a fixed number of threads and then re-using them again & again. As we'll see, this outperforms assigning random threads even in small test cases (which I mentioned can outperform normal code).
+
+## Some problems with multithreading
+
+### Race Condition
+
+Let's imagine 2 threads running is parallel, and both have access to a single variable *i*, and modify it by incrementing it by 1, without caring whether the other thread is also using *i* during the incrementing. Thus both hav access to it without any bounds or checks. This is a really bad situtation. Guess why?
+
+Assume *i* has initial value 5. Let's imagine thread 1 accessed *i* and made a copy of it. At the same time thread 2 also made a copy of *i*. Then both threads incremented *i* by one making its copy in each thread equal to 6, and then putting the value back in *i*. Now the value of *i* is 6, but what we wanted to do was to each thread to increment value once, thus resulting in *i* being seven. But because threads did the increment without being aware of other threads, *i* only got incremented once. This situtation is called *race condition*, and is often not desirable.
 
 ## Let's start!
 
