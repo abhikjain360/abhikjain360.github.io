@@ -24,13 +24,96 @@ Though your CPU can run a lot more _virtual_ threads than number of cores it has
 
 Threadpooling is creating a fixed number of threads and then re-using them again & again. As we'll see, this outperforms assigning random threads even in small test cases (which I mentioned can outperform normal code).
 
-## Some problems with multithreading
+## Introduction
 
 ### Race Condition
 
 Let's imagine 2 threads running is parallel, and both have access to a single variable *i*, and modify it by incrementing it by 1, without caring whether the other thread is also using *i* during the incrementing. Thus both hav access to it without any bounds or checks. This is a really bad situtation. Guess why?
 
 Assume *i* has initial value 5. Let's imagine thread 1 accessed *i* and made a copy of it. At the same time thread 2 also made a copy of *i*. Then both threads incremented *i* by one making its copy in each thread equal to 6, and then putting the value back in *i*. Now the value of *i* is 6, but what we wanted to do was to each thread to increment value once, thus resulting in *i* being seven. But because threads did the increment without being aware of other threads, *i* only got incremented once. This situtation is called *race condition*, and is often not desirable.
+
+### Mutex Locks and Atomic types
+
+Mutex is a way to ensure that some data/resource that is being shared between threads can be used by only one thread at a time. Thus, it helps with the race condition. Basically, when a mutex lock is put on a certain part of code, that part of code can be executed by only one thread at once. By putting locks around the code where the variables shared by multiple threads are accessed/changed, we can prevent race condition.
+
+Mutex locks can used in cpp using the ```#include <mutex>```. There are various mutex locks available in the library, and each one depends upon the use case. After initializing a mutex variable, one can different locks on it.
+
+One of the most basic ways is to direclty use the ```lock```  and ```unlock``` function of the mutex. ```lock_guard``` is also an option which unlock as soon as it goes out of scope, but it has nearly depreceated and ```scoped_lock``` is used.
+
+```cpp
+#include <mutex>
+
+int main() {
+	std::mutex mu;
+
+	// locking using mutex's method
+	mu.lock();
+		// code
+	mu.unlock();
+
+	// locking using lock_guard
+	{
+		std::lock_guard<std::mutex> lockGuard(mu);
+		// code
+
+	} //goes out of scope here
+
+	// locking using scoped_lock (Since C++17)
+	{
+		std::scoped_lock<std::mutex> scopeLock(mu);
+		// code
+	} //goes out of scope here
+
+	return 0;
+}
+```
+
+For our pupose, we'll use ```unique_lock```, which is very similiar to ```lock_guard``` as it is required by conditional variable in wait call (will be discussed in more detail later).
+
+Note thread although using locks ensures thread safety, they are huge overhead. Sometimes, running on multiple threads might be slower than running on single thread if we are locking and unlocking too much. Thus, try to use locks as less often as you can, and don't do heavy things when lock is on, or else your program might loose a lot of speed while consuming much more resources.
+
+Another way to ensure thread safety is use *atomic types*, available since C++17.  We can wrap the shared variable with an atomic type, and it'll automatically make sure that one thread accesses/modifies it at time, allowing us to write _lock-free_ code. Using atomic types, is arguably more easy and faster than using locks. But using atomic types come with it's own set of complications (like how it stores the entire variable in local cache), and we don't want to get into it now.
+
+### Condition variables
+
+Conditional variables allow us to control the execution and timing of threads based on certain conditions. This allows for a greater control on order of execution of commands, which would otherwise be out of control, again possibly leading to race conditions. Conditional variables allow us to send _notifications_ to threads, using the ```notify_one``` and ```notify_all``` functions.
+
+For example, we have 2 variable ```i``` and ```j```, and we want that ```i``` gets incremented only after ```j``` is greater than 5. We can create a mutex, and put it under a lock. This lock will be under a condtional variable and wait till condition is met.
+
+```cpp
+#include <thread>
+#include <mutex>
+#include <conditional_variable>
+
+int j = 0, i = 0;
+std::mutex mu;
+std::conditional_variable cond;
+
+void waitForCond() {
+	std::unique_lock<std::mutex> lock(mu);
+	cond.wait(lock);
+
+	i += 1;
+}
+
+void increment_j() {
+	for (int k  = 0; k < 10; ++k) {
+		j += 1;
+		if (j > 5)
+			cond.notify_one();
+	}
+}
+
+int main() {
+	std::thread worker1(waitForCond);
+	std::thread worker2(increment_j);
+
+	return 0;
+}
+
+```
+
+We will use condition variables in threadpool to keep the created threads on hold until a new task has been alloted, after which we can take a task of the the task list and run it.
 
 ## Let's start!
 
@@ -79,8 +162,8 @@ Whenever we run a C++ application, we atleast use 1 thread, executing the code i
 We can ask main thread to wait for other threads by using ```join()```. This can be done by saving the construction of ```std::thread``` in a variable, and then joining it.
 
 ```cpp
-std::thread t(function_pointer, args...);
-t.join();
+std::thread worker(function_pointer, args...);
+worker.join();
 ```
 
 So in our constructor of threadpool, we need to create a bunch of threads, push them in the ```std::vector<std::thread> threads```, and in our deconstructor we need to join all these vectors. We'll also create a function to add Tasks at the back queue ```tasks``` and pop out tasks from front, giving it to each thread.
@@ -93,7 +176,7 @@ Another thing to keep in mind is to avoid a problem which comes with using multi
 
 Also from now on instead of writing entire program when we update our code, I'll just put the updated part with enough context to let you know where to put the code, to make things easy for both of us.
 
-### The ```thread_manager``` function
+### The thread_manager function
 
 Before we write the constructor and deconstructor for the threadpool class, we'll write the function to pass onto the threads we create. This function will execute functions from the tasks queue, as mentioned before. We also want to be able to stop thread when we destroy the threadpool object, we'll create a new variable ```bool stopvar``` which will keep track of when to stop the thread. We will set it to ```false``` when creating threadpool.
 
@@ -107,7 +190,7 @@ class threadpool {
 	bool stopvar;
 };
 
-inline void threadpool::thread_manager() {
+void threadpool::thread_manager() {
 	while (true) {
 		Task task;
 		{
