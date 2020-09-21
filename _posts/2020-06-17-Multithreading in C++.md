@@ -28,7 +28,7 @@ Threadpooling is creating a fixed number of threads and then re-using them again
 
 ### Race Condition
 
-Let's imagine 2 threads running is parallel, and both have access to a single variable *i*, and modify it by incrementing it by 1, without caring whether the other thread is also using *i* during the incrementing. Thus both hav access to it without any bounds or checks. This is a really bad situtation. Guess why?
+Let's imagine 2 threads running is parallel, and both have access to a single variable *i*, and modify it by incrementing it by 1, without caring whether the other thread is also using *i* during the incrementing. Thus both have access to it without any bounds or checks. This is a really bad situation. Guess why?
 
 Assume *i* has initial value 5. Let's imagine thread 1 accessed *i* and made a copy of it. At the same time thread 2 also made a copy of *i*. Then both threads incremented *i* by one making its copy in each thread equal to 6, and then putting the value back in *i*. Now the value of *i* is 6, but what we wanted to do was to each thread to increment value once, thus resulting in *i* being seven. But because threads did the increment without being aware of other threads, *i* only got incremented once. This situtation is called *race condition*, and is often not desirable.
 
@@ -38,7 +38,7 @@ Mutex is a way to ensure that some data/resource that is being shared between th
 
 Mutex locks can used in cpp using the ```#include <mutex>```. There are various mutex locks available in the library, and each one depends upon the use case. After initializing a mutex variable, one can different locks on it.
 
-One of the most basic ways is to direclty use the ```lock```  and ```unlock``` function of the mutex. ```lock_guard``` is also an option which unlock as soon as it goes out of scope, but it has nearly depreceated and ```scoped_lock``` is used.
+One of the most basic ways is to directly use the ```lock```  and ```unlock``` function of the mutex. ```lock_guard``` is also an option which unlock as soon as it goes out of scope, but it has nearly deprecated and ```scoped_lock``` is used.
 
 ```cpp
 #include <mutex>
