@@ -27,4 +27,6 @@ What do you do when you come across a bunch of cubes with missing edges? Obvious
 
 In the 61<sup>st<\sup> International Mathematical Olympiad, we have now [Artificial Intelligence competing](https://www.quantamagazine.org/at-the-international-mathematical-olympiad-artificial-intelligence-prepares-to-go-for-the-gold-20200921/) against humans. IMO provides a ideal place to test AI in a field humans are still better, in Mathematical Thinking.
 
+In the September podcast of [My Favorite Theorem](https://podcasts.google.com/feed/aHR0cHM6Ly9rcGtudWRzb24uY29tL215LWZhdm9yaXRlLXRoZW9yZW0_Zm9ybWF0PXJzcw?sa=X&ved=2ahUKEwjwgtSjxYbsAhW6DLcAHTM5DyAQ4aUDegQIARAC), in which Susan D'Agostino talks about her favourite theorem, the [Jordan Curve Theorem](https://people.math.osu.edu/fiedorowicz.1/math655/Jordan.html#:~:text=The%20Jordan%20curve%20theorem%20is,theorem%2C%20let%20alone%20prove%20it.), which tells us that every simple closed curve separates a 2D plane into 2 parts (inside and outside). This theorem seemed so intuitively  obvious that no one bother proving it, but it is rather difficult to prove.
+
 [Sir Vaughan Jones](https://en.wikipedia.org/wiki/Vaughan_Jones), a Fields Medal winning mathematician who has contributed significantly to knot theory, sadly passed on 6<sup>th<\sup> September, 2020 at the age of 67.
