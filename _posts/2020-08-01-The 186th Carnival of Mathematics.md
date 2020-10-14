@@ -23,7 +23,7 @@ Many people are now attending online meeting, either via zoom, Google Meets etc.
 
 9<sup>th</sup> marks the birthday of Dennis Ritchie, a famous computer scientist and the creator of many things on which modern computer infrastructure depends upon (including, but not limited to C programming language and the Unix operating system).
 
-What do you do when you come across a bunch of cubes with missing edges? Obviously, you put them in a soap solution and see what sort of soap films form around the loops of the incomplete cube (hint: they try to cover the minimum surface area). Kartik Chandra (aka hardmath123) has written the code to simulate this for us so we don't need to. You read more about this on his [blog post](http://hardmath123.github.io/minimal-surface.html)
+What do you do when you come across a bunch of cubes with missing edges? Obviously, you put them in a soap solution and see what sort of soap films form around the loops of the incomplete cube (hint: they try to cover the minimum surface area). Kartik Chandra (aka hardmath123) has written the code to simulate this for us so we don't need to. You can read more about this on his [blog post](http://hardmath123.github.io/minimal-surface.html)
 
 Often proofs in geometry are accompanied by beautiful (or sometimes not so beautiful) diagrams. Some of these diagrams have inspired people to create art based on them. Check out this [post on Futility Closet](https://www.futilitycloset.com/2020/09/04/art-and-artifice-2/) to find out more about them.
 
