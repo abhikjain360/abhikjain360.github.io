@@ -21,7 +21,7 @@ Now, moving onto the interesting maths stuff that happened this month.
 
 Many people are now attending online meeting, either via zoom, Google Meets etc. which are often boring. Add some fun to those meeting with these [card tricks](https://www.vanishingincmagic.com/blog/CATO) that can be performed in online meetings.
 
-9<sup>th</sup> marks the Dennis Ritchie, a famous computer scientist and the creator of many things on which modern computer infrastructure depends upon (including, but not limited to C programming language and the Unix operating system).
+9<sup>th</sup> marks the birthday of Dennis Ritchie, a famous computer scientist and the creator of many things on which modern computer infrastructure depends upon (including, but not limited to C programming language and the Unix operating system).
 
 What do you do when you come across a bunch of cubes with missing edges? Obviously, but them in a soap solution and see what sort of soap films form around the loops of the incomplete cube (hint: they try to cover the minimum surface area). Kartik Chandra (aka hardmath123) has written the code to simulate this for us so we don't need to. You read more about this on his [blog post](http://hardmath123.github.io/minimal-surface.html)
 
