@@ -22,7 +22,7 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Deploy to gh-pages branch
-        uses: shalzz/zola-deploy-action@v0.13.0
+        uses: shalzz/zola-deploy-action
         env:
           PAGES_BRANCH: gh-pages
-          TOKEN: ${{ secrets.BLOG_SITE }}
+          TOKEN: ${{ secrets.TOKEN }}
