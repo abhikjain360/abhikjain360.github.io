@@ -25,4 +25,4 @@ jobs:
         uses: shalzz/zola-deploy-action@v0.13.0
         env:
           PAGES_BRANCH: gh-pages
-          TOKEN: 108b8fed12e6caf392333d82d238dc9eff60e140
+          TOKEN: ${{ secrets.BLOG_SITE }}
