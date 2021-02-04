@@ -2,7 +2,7 @@
 
 name: Buld and deploy GH Pages
 
-# Controls when the action will run. 
+# Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
@@ -25,4 +25,4 @@ jobs:
         uses: shalzz/zola-deploy-action@v0.13.0
         env:
           PAGES_BRANCH: gh-pages
-          TOKEN: ${{ 108b8fed12e6caf392333d82d238dc9eff60e140 }}
+          TOKEN: 108b8fed12e6caf392333d82d238dc9eff60e140
