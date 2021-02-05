@@ -3,7 +3,7 @@ title = "Threadpooling in C++"
 date = 2020-06-17
 
 [taxonomies]
-tags = ["c++", "threadpool"]
+tags = ["C++", "multithreading"]
 categories = ["programming"]
 +++
 

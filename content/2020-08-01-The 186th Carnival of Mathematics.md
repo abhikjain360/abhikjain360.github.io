@@ -3,7 +3,7 @@ title = "The 186th Carnival of Mathematics"
 date=2020-08-01
 
 [taxonomies]
-tags = ["carival of maths"]
+tags = ["carnival of maths"]
 categories = ["maths"]
 +++
 
