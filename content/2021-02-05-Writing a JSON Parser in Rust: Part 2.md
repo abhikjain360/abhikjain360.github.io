@@ -92,6 +92,39 @@ enum Result<T, E> {
 }
 ```
 
+I use `Result` when I want to return some error information as well, otherwise I use `Option`. But you can use anything you like, though the convention is to use them according to their name, that is `Result` where you return a "result".
+
+### Writing the parsers, finally
+
+That was a lot of groundwork! But rightly so, because now we can write the parsing methods and not worry about anything else. Note that when actually coding myself I went a lot back and forth in between (I started straight with parser methods, and suffered for it), and the 2 convenience functions we wrote above weren't there in the original code. So don't think I am super-smart to have coded things in such perfect order. I just spent a lot of time on it so you don't have to!
+
+We will divide the parsing into 3 functions:
+- `skip_whitespaces()` will be used, well, skip whitespaces,
+- `parse()` will be the function that will be called by user (and thus will be public), and will also deal with anything wrapped in `{}` and letting the `parse_data` figure out how to convert things to ke-value pair returing a HaspMap,
+- `parse_data()` will deal with the key-value stuff, identify the datatype and returns a tupple of a *value* and it's *key*
+
+Let's start with the easiest one, `skip_whitespaces`.
+
+
+```rust
+// parser.rs
+
+impl<'a> Parser<'a> {
+    fn skip_whitespaces(&mut self) {
+		// peeking at the next char
+        while let Ok(ch) = self.peek() {
+			// if not whitespace, dont consume it
+            if !ch.is_whitespace() {
+                break;
+            }
+			// else consume it and move on
+            self.next().unwrap();
+        }
+    }
+}
+```
+
+We simply consume the iterator till we find a character which is not whitespace, and return without consuming the non-whitespace character. Notice the `while let` pattern matching. The while loop will run till `self.peek()` does not return an error. We could have handled the case where it returns an error (possibly by returning a `Result`), but I am not bothering right now. Feel free to do so if you wish.
 
 [Part 1]: https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/
 [Part 1 Values enum]: https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/#value-enum

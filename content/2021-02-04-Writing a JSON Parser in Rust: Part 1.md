@@ -8,8 +8,9 @@ categories = ["programming"]
 +++
 
 One of the best ways to get started with parsing strings in a particular programming language is to write a JSON parser, so that's what we will do. I don't care terribly about performance, but the code should be easy to write, and written well enough for me to understand when I re-read it again (it often happens that I code so terribly bad or don't document enough that I am not able to understand what I wrote, I am sure you must have had same experience before 😝).
+In case you want to jump to code directly, the completed code can be found [here][Github Link].
 
-> In case you want to jump to code directly, the completed code can be found [here][Github Link].
+> Note that if you want a really good and feature complete JSON parser, try out [serde][Serde JSON].
 
 ### Why use Rust ?
 
@@ -196,6 +197,7 @@ The `chars()` method on a `str` returns a `std::str::Chars`, and we make it peek
 This is it for the 1st part! In the net part we will write some more methods for the `Parser` struct, and actually parse the string to produce the HashMap.
 
 [Github Link]: https://github.com/abhikjain360/json-parser
+[Serde JSON]: https://docs.serde.rs/serde_json
 [JSON homepage]: https://www.json.org/json-en.html
 [Rustup]: https://rustup.rs/
 [Rust Book]: https://www.json.org/json-en.html
