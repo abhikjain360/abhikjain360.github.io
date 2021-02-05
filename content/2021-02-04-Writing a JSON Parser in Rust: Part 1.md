@@ -126,7 +126,7 @@ pub enum Value {
 }
 ```
 
-In Rust, enum variants can store inside them another data type, and enums can also very easily be pattern-matched, which can be useful for error handling. `Vec` is just a dynamically-sized array provided by the Rust's standard library. The types also have angular brackets (`< >`) after them are using **generics**, similiar to C++'s *templates*.
+In Rust, enum variants can store inside them another data type, and enums can also very easily be pattern-matched, which can be useful for error handling. `Vec` is just a dynamically-sized array provided by the Rust's standard library. The types also have angular brackets (`< >`) after them are using **generics**, similar to C++'s *templates*.
 
 The `HashMap` type takes in 2 generics, one for the *key* type with which we index and one for *value* type which is the type which is returned. In our case we index with a `String`, and get a variant of `Value` enum.
 
@@ -164,14 +164,14 @@ pub struct Parser<'a> {
 }
 ```
 
-Notice that we have given `Parser` a generic `'a`, which is a *lifetime generic*. One of the things Rust guarantees is that if you are allowed to hold a refernce to some data, then the data is still valid. You can hold a:
+Notice that we have given `Parser` a generic `'a`, which is a *lifetime generic*. One of the things Rust guarantees is that if you are allowed to hold a reference to some data, then the data is still valid. You can hold a:
 
 - mutable reference: meaning you have exclusive access to the data
 - immutable reference: meaning that there exist multiple references to the data and none of them has exclusive access.
 
-This allows Rust to prevent data races and other memory problems that are a [major cause of bugs in other languages][Microsoft's report]. These checks are performed at compile time to ensure that there is no performance penalty at runtime (though you can always use [Rc][Rc docs] for runtime checks). To do this, Rust introduced the concept of lifetime. Each peice of data or variable has a lifetime associated with it, which denotes for how long during the execution of the program will that peice of data be valid/exist, and compiler doeesn't allow refernces to exist beyond the lifetime of the data. There are ways to circumvent this checking by the compiler, as the compiler isn't perfect and is not able to see how long the data will be valid in all possible cases.
+This allows Rust to prevent data races and other memory problems that are a [major cause of bugs in other languages][Microsoft's report]. These checks are performed at compile time to ensure that there is no performance penalty at runtime (though you can always use [Rc][Rc docs] for runtime checks). To do this, Rust introduced the concept of lifetime. Each piece of data or variable has a lifetime associated with it, which denotes for how long during the execution of the program will that piece of data be valid/exist, and compiler doesn't allow references to exist beyond the lifetime of the data. There are ways to circumvent this checking by the compiler, as the compiler isn't perfect and is not able to see how long the data will be valid in all possible cases.
 
-So in our case, the `std::str::Chars` takes a immutable refence to the string it iterates over, and thus we need to provide the struct with a lifetime to tell the compiler that the struct `Parser` created should be allowed to live as long as the refence to the string is valid.
+So in our case, the `std::str::Chars` takes a immutable reference to the string it iterates over, and thus we need to provide the struct with a lifetime to tell the compiler that the struct `Parser` created should be allowed to live as long as the reference to the string is valid.
 
 Now let's add some methods to our struct. We do this by creating an `impl` block:
 
@@ -187,7 +187,11 @@ impl <'a> for Parser<'a> {
 }
 ```
 
-Using `new` is the standard way most structs are created in Rust, so we also define a similar way to contruct the `Parser` struct.
+Using `new` is the standard way most structs are created in Rust, so we also define a similar way to construct the `Parser` struct. We take a immutable reference to the string being parsed as we don't need to modify it, only read from it. The lifetime with the reference `&'a` tells the compiler to check that `src` is valid atleast as long as the created `Parser` lives.
+
+> Usually Rust compiler is able to figure out lifetimes using *lifetime elisions*, but in our case it is not. To know about cases when compiler does figure out lifetimes on its own, see [this][Lifetime elisions Rust Refence].
+
+The `chars()` method on a `str` returns a `std::str::Chars`, and we make it peekable.
 
 This is it for the 1st part! In the net part we will write some more methods for the `Parser` struct, and actually parse the string to produce the HashMap.
 
@@ -201,3 +205,4 @@ This is it for the 1st part! In the net part we will write some more methods for
 [derive macros]: https://doc.rust-lang.org/reference/procedural-macros.html#derive-macros
 [Microsoft's report]: https://msrc-blog.microsoft.com/2019/07/16/a-proactive-approach-to-more-secure-code/
 [Rc docs]: https://doc.rust-lang.org/stable/std/rc/struct.Rc.html
+[Lifetime elisions Rust Refence]: https://doc.rust-lang.org/reference/lifetime-elision.html#lifetime-elision
