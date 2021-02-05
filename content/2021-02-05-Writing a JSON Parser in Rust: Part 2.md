@@ -126,5 +126,7 @@ impl<'a> Parser<'a> {
 
 We simply consume the iterator till we find a character which is not whitespace, and return without consuming the non-whitespace character. Notice the `while let` pattern matching. The while loop will run till `self.peek()` does not return an error. We could have handled the case where it returns an error (possibly by returning a `Result`), but I am not bothering right now. Feel free to do so if you wish.
 
+
+
 [Part 1]: https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/
 [Part 1 Values enum]: https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/#value-enum
