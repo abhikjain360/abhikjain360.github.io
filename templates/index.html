@@ -14,6 +14,12 @@
 <!DOCTYPE html>
 <html lang="{{ config.default_language }}">
     <head>
+
+		{%- block js -%}
+			{{ head::math() }}
+			{{ head::ganalytics() }}
+		{%- endblock js -%}
+
         {%- block title -%}
             <title>{{ config.title }}</title>
         {%- endblock title -%}
@@ -37,11 +43,6 @@
         {%- block rss -%}
             {{ head::rss() }}
         {%- endblock rss -%}
-
-		{%- block js -%}
-			{{ head::math() }}
-			{{ head::ganalytics() }}
-		{%- endblock js -%}
 
     </head>
     <body>
