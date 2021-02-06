@@ -49,8 +49,8 @@ We can call `next` on and iterator to consume the next item, and `peek` to just 
 
 ```rust
 enum Option<T> {
-	Some(T),
-	None
+    Some(T),
+    None
 }
 ```
 
@@ -87,8 +87,8 @@ The `Result<T, E>` type is also defined in standard library for error handling. 
 
 ```rust
 enum Result<T, E> {
-	Ok(T),
-	Err(E)
+    Ok(T),
+    Err(E)
 }
 ```
 
@@ -111,13 +111,13 @@ Let's start with the easiest one, `skip_whitespaces`.
 
 impl<'a> Parser<'a> {
     fn skip_whitespaces(&mut self) {
-		// peeking at the next char
+        // peeking at the next char
         while let Ok(ch) = self.peek() {
-			// if not whitespace, dont consume it
+            // if not whitespace, dont consume it
             if !ch.is_whitespace() {
                 break;
             }
-			// else consume it and move on
+            // else consume it and move on
             self.next().unwrap();
         }
     }
@@ -125,6 +125,127 @@ impl<'a> Parser<'a> {
 ```
 
 We simply consume the iterator till we find a character which is not whitespace, and return without consuming the non-whitespace character. Notice the `while let` pattern matching. The while loop will run till `self.peek()` does not return an error. We could have handled the case where it returns an error (possibly by returning a `Result`), but I am not bothering right now. Feel free to do so if you wish.
+
+Now the following methods are left.
+
+```rust
+// parser.rs
+
+use std::collections::HashMap;
+
+impl <'a> Parser<'a> {
+    fn parse_value(&mut self) -> Result<Value, ParseError> { /*TODO*/ }
+    fn parse(&mut self) -> Result<HashMap<String, Value>, ParseError> { /*TODO*/ }
+}
+```
+
+The `parse_value` will return the data that comes after the key, for example in the following JSON:
+
+```json
+{
+    "name": "Mr. Json",
+    "age": 19
+}
+```
+
+`parse_value` will deal with `"Mr. Json"` and `19`, while rest will be dealt by `parse` itself.
+
+Let's first write the `parse()` function.
+
+```rust
+// parser.rs
+
+impl <'a> Parser<'a> {
+    fn parse(&mut self) -> Result<HashMap<String, Value>, ParseError> {
+        let map = HashMap::new();
+
+        self.skip_whitespaces();
+        if self.next()? != '{' {
+            return Err(ParseError::ExpectedChar('{'));
+        }
+
+        // add some code here later
+
+        Ok(map)
+    }
+
+}
+```
+
+We are creating a new empty HashMap, and returning it. JSON always has to start with `'{'` so we are checking whether that is the case or not. If the rule is violated, we simply return the error.
+
+Recall that `self.next()` returns a `Result<Value, ParseError>`, so we use the `?` operator on it. This operator unwraps the value if there are no errors, else it simply transmits the error through the function. We can use `?` operator only when the function in which it is being called returns the same error type as the error type of the result we are unwrapping. We can also ue the operator to unwrap `Option<T>`, but then we also need to return an `Option`.
+
+We will be using similar pattern throughout this function. I am simply pasting the function here are code is pretty simply once you understand the previous code block. We iterate through the string until we reach `'}'`, or we encounter an error.
+
+```rust
+// parser.rs
+
+impl <'a> Parser<'a> {
+    fn parse(&mut self) -> Result<HashMap<String, Value>, ParseError> {
+        let map = HashMap::new();
+
+        self.skip_whitespaces();
+
+        if self.next()? != '{' {
+            return Err(ParseError::ExpectedChar('{'));
+        }
+
+        loop {
+            self.skip_whitespaces();
+
+            if self.next()? != '"' {
+                return Err(ParseError::ExpectedChar('"'));
+            }
+
+            // getting the key
+            let ch = self.next()?;
+            if !ch.is_ascii_alphabetic() && ch != '_' {
+                return Err(ParseError::UnexpectedChar(ch));
+            }
+            let mut ident = String::from(ch);
+            while let Ok(ch) = self.peek() {
+                if ch.is_ascii_alphanumeric() || *ch == '_' {
+                    ident += &ch.to_string();
+                    self.next().unwrap();
+                } else {
+                    break;
+                }
+            }
+
+            if self.next()? != '"' {
+                return Err(ParseError::ExpectedChar('"'));
+            }
+
+            self.skip_whitespaces();
+
+            if self.next()? != ':' {
+                return Err(ParseError::ExpectedChar(':'));
+            }
+
+            // getting the value and adding key-value pair to the HashMap
+            map.insert(ident, self.parse_value()?);
+
+            self.skip_whitespaces();
+
+            // Allow single comma even after the last entry
+            if *self.peek()? == ',' {
+                self.next().unwrap();
+            }
+
+            self.skip_whitespaces();
+
+            // break if closing parenthesis encountered
+            if *self.peek()? == '}' {
+                break;
+            }
+        }
+
+        Ok(map)
+    }
+}
+```
+
 
 
 

@@ -17,8 +17,8 @@ In case you want to jump to code directly, the completed code can be found [here
 Mainly because I like Rust, and because I hope to make other people realise how awesome Rust is. Probably using Python would have been easier, but anyone who has had experience with Rust will probably tell you Rust if more elegant and fun to code!
 
 <img
-	src="https://rustacean.net/assets/cuddlyferris.png"
-	style="max-width: 25%; height: auto; margin-left: auto; margin-right: auto;"
+    src="https://rustacean.net/assets/cuddlyferris.png"
+    style="max-width: 25%; height: auto; margin-left: auto; margin-right: auto;"
 ></img>
 
 
