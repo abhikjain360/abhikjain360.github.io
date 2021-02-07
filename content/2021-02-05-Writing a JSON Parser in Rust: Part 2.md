@@ -256,14 +256,14 @@ We use Rust's `match` statements, which allow us to match against patterns reall
 //parser.rs
 
 impl <'a> Parser<'a> {
-	fn parse_value(&mut self) -> Result<Value, ParseError> {
-		self.skip_whitespaces();
+    fn parse_value(&mut self) -> Result<Value, ParseError> {
+        self.skip_whitespaces();
 
         let ch = *self.peek()?;
         match ch {
-			// match against all possible characters
-		}
-	}
+            // match against all possible characters
+        }
+    }
 }
 ```
 
