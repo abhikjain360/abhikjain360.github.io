@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/slideout/1.0.1/slideout.min.js"></script>
+	
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.css" integrity="sha384-9eLZqc9ds8eNjO3TmqPeYcDj8n+Qfa4nuSiGYa6DjLNcv9BtN69ZIulL9+8CqC9Y" crossorigin="anonymous">
+
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.js" integrity="sha384-K3vbOmF2BtaVai+Qk37uypf7VrgBubhQreNQe9aGsz9lB63dIFiQVlJbr92dw2Lx" crossorigin="anonymous"></script>
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/mathtex-script-type.min.js" integrity="sha384-zWYbd0NBwgTsgIdFKVprSfTh1mbMPe5Hz1X3yY4Sd1h/K1cQoUe36OGwAGz/PcDy" crossorigin="anonymous"></script>
+	    
+			<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/auto-render.min.js" integrity="sha384-kmZOZB5ObwgQnS/DuDg6TScgOiWWBiVt0plIRkZCmE6rDZGrEOQeHM5PcHi+nyqe" crossorigin="anonymous"
+	        onload="renderMathInElement(document.body);"></script>
+	    
+	
+
+			
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E22MG5SJXW"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-E22MG5SJXW');
+</script>
+
+    <title>Writing a JSON Parser in Rust: Part 1 - Abhik Jain</title>
+    
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="description" content="My blog about tech and stuff"/>
+
+    <meta property="og:title" content="
+    Abhik Jain -&nbsp;Writing a JSON Parser in Rust: Part 1" />
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="&#x2F;writing-a-json-parser-in-rust-part-1&#x2F;"/>
+    <meta property="og:description" content="My blog about tech and stuff"/>
+    <link rel="stylesheet" href="&#x2F;style.css">
+    <link rel="stylesheet" href="&#x2F;color&#x2F;gruvbox.css">
+<link rel="alternate" type="application/rss+xml" title="Abhik Jain RSS" href="&#x2F;rss.xml"></head>
+    <body>
+    <center>
+        <div class="container">
+<header class="header">
+    <div class="header__inner">
+        <div class="header__logo">
+            <a href="&#x2F;">
+    <div class="logo">
+        Abhik Jain
+    </div>
+</a>
+        </div>
+        <div class="menu-trigger">menu</div>
+    </div>
+    
+    <nav class="menu">
+        <ul class="menu__inner menu__inner--desktop">
+            
+            
+                    <li>
+                        <a href="&#x2F;about">about</a>
+                    </li>
+                
+                    <li>
+                        <a href="&#x2F;contact">contact</a>
+                    </li>
+                
+            </ul>
+
+        <ul class="menu__inner menu__inner--mobile">
+            
+        <li>
+            <a href="&#x2F;about">about</a>
+        </li>
+        <li>
+            <a href="&#x2F;contact">contact</a>
+        </li>
+        </ul>
+    </nav>
+
+    </header>
+<div class="content"><div class="post">
+        <h1 class="post-title">
+            <a href="&#x2F;writing-a-json-parser-in-rust-part-1&#x2F;">Writing a JSON Parser in Rust: Part 1</a>
+        </h1>
+        
+    <div class="post-meta">
+        <span class="post-date">2021.04.02
+                </span>
+
+        <span class="post-author">
+    ::
+    Abhik Jain</span>
+
+        
+
+    
+    :: {<a href="&#x2F;categories&#x2F;programming&#x2F;">programming</a>} 
+
+            
+    ::
+    #<a href="&#x2F;tags&#x2F;rust&#x2F;">Rust</a>
+        
+    #<a href="&#x2F;tags&#x2F;json&#x2F;">JSON</a>
+        
+    
+            
+        
+    </div>
+
+
+
+        
+
+        <div class="post-content">
+            <p>One of the best ways to get started with parsing strings in a particular programming language is to write a JSON parser, so that’s what we will do. I don’t care terribly about performance, but the code should be easy to write, and written well enough for me to understand when I re-read it again (it often happens that I code so terribly bad or don’t document enough that I am not able to understand what I wrote, I am sure you must have had same experience before 😝).
+In case you want to jump to code directly, the completed code can be found <a href="https://github.com/abhikjain360/json-parser">here</a>.</p>
+<blockquote>
+<p>Note that if you want a really good and feature complete JSON parser, try out <a href="https://docs.serde.rs/serde_json">serde</a>.</p>
+</blockquote>
+<h3 id="why-use-rust">Why use Rust ?<a class="zola-anchor" href="#why-use-rust" aria-label="Anchor link for: why-use-rust">§</a>
+</h3>
+<p>Mainly because I like Rust, and because I hope to make other people realise how awesome Rust is. Probably using Python would have been easier, but anyone who has had experience with Rust will probably tell you Rust if more elegant and fun to code!</p>
+<p><img
+    src="https://rustacean.net/assets/cuddlyferris.png"
+    style="max-width: 25%; height: auto; margin-left: auto; margin-right: auto;"
+></img></p>
+<h3 id="why-use-json">Why use JSON ?<a class="zola-anchor" href="#why-use-json" aria-label="Anchor link for: why-use-json">§</a>
+</h3>
+<p>JSON has really easy syntax, and is used often enough that learning how to parse it might turn out to be useful. This is not to say that there aren’t other simpler things to parse (like Toml, Yaml etc.), but I feel JSON is more widely used.</p>
+<h3 id="pre-requisite">Pre-requisite<a class="zola-anchor" href="#pre-requisite" aria-label="Anchor link for: pre-requisite">§</a>
+</h3>
+<p>I will assume some familiarity with programming in general, and knowledge about <a href="https://www.json.org/json-en.html">JSON’s syntax</a>. You will need to have <a href="https://rustup.rs/">Rust setup</a> and some knowledge about Rust as well. If you are just starting out I highly recommend the <a href="https://www.json.org/json-en.html">Rust Book</a>.</p>
+<h3 id="setup">Setup<a class="zola-anchor" href="#setup" aria-label="Anchor link for: setup">§</a>
+</h3>
+<p>If you know how to create a new rust project, you can skip this part. We will use <a href="https://doc.rust-lang.org/stable/cargo/">cargo</a> to setup our project. Simply run in a terminal:</p>
+<pre style="background-color:#282828;">
+<code class="language-bash" data-lang="bash"><span style="color:#fdf4c1;">cargo new json-parser
+</span></code></pre>
+<p>It will create a folder named <code>json-parser</code> in directory where ran the command.</p>
+<pre style="background-color:#282828;">
+<code><span style="color:#fdf4c1aa;">|-- Cargo.toml
+`-- src
+    `-- main.rs
+</span></code></pre>
+<p>The code which executes resides in <code>src/main.rs</code>. If we look at the contents, we will find a ‘Hello World’ program coded in it.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">main</span><span style="color:#fdf4c1aa;">() {
+    </span><span style="color:#fabd2f;">println!</span><span style="color:#fdf4c1aa;">(</span><span style="color:#b8bb26;">&quot;Hello, world!&quot;</span><span style="color:#fdf4c1aa;">);
+}
+</span></code></pre>
+<p>To compile the code, simply run from root directory:</p>
+<pre style="background-color:#282828;">
+<code><span style="color:#fdf4c1aa;">cargo run
+</span></code></pre>
+<p>or to run with optimizations:</p>
+<pre style="background-color:#282828;">
+<code><span style="color:#fdf4c1aa;">cargo run --release
+</span></code></pre><h3 id="creating-modules">Creating Modules<a class="zola-anchor" href="#creating-modules" aria-label="Anchor link for: creating-modules">§</a>
+</h3>
+<p>In any codebase, it is always nice to split up code into various files. In this mini-project we will create 3 additional files:</p>
+<ul>
+<li><code>values.rs</code> : To define the <code>Value</code> enum, which will denote the type of JSON data.</li>
+<li><code>parser.rs</code> : Will have code to parse the JSON data in <code>str</code> form,</li>
+<li><code>macros.rs</code> : This will contain code in which we define macros to allow use to easily deal with JSON data.</li>
+</ul>
+<p>So we create these files in the <code>src</code> directory, so the contents now look like:</p>
+<pre style="background-color:#282828;">
+<code><span style="color:#fdf4c1aa;">|-- Cargo.toml
+`-- src
+    |-- macros.rs
+    |-- main.rs
+    |-- parser.rs
+    `-- values.rs
+</span></code></pre>
+<p>We also import all the files in <code>main.rs</code>, so now it looks like:</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// main.rs
+
+</span><span style="color:#fdf4c1aa;">#![</span><span style="color:#fdf4c1;">allow</span><span style="color:#fdf4c1aa;">(dead_code)]
+
+</span><span style="color:#fa5c4b;">mod </span><span style="color:#8ec07c;">macros</span><span style="color:#fdf4c1aa;">;
+</span><span style="color:#fa5c4b;">mod </span><span style="color:#8ec07c;">parser</span><span style="color:#fdf4c1aa;">;
+</span><span style="color:#fa5c4b;">mod </span><span style="color:#8ec07c;">values</span><span style="color:#fdf4c1aa;">;
+
+</span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">main</span><span style="color:#fdf4c1aa;">() {
+    </span><span style="color:#fabd2f;">println!</span><span style="color:#fdf4c1aa;">(</span><span style="color:#b8bb26;">&quot;Hello, world!&quot;</span><span style="color:#fdf4c1aa;">);
+}
+</span></code></pre>
+<p>The <code>#![allow(dead_code)]</code> at the top is to turn of warning. In general Rust compiler is really aggressive with warnings about dead code, but for now they are just annoying so we disable them. Using them in the <code>main.rs</code> file is enough to disable warnings for the entire project.</p>
+<h3 id="the-plan">The Plan<a class="zola-anchor" href="#the-plan" aria-label="Anchor link for: the-plan">§</a>
+</h3>
+<p>Before we set out to write our code, we should create a rough sketch of what we want to create. We will use <code>std::collection::HashMap</code>, and data structure provided by Rust’s standard library which is somewhat similar to Python dictionaries of C++ <code>std::unordered_map</code> in terms of functionality. We want the JSON data to be stored as key-value pairs in the <em>HashMap</em>, and able to generate it  by simply passing a <code>str</code> type.</p>
+<p>Some macros to use this functionality easily would also be nice.</p>
+<h3 id="value-enum"><code>Value</code> enum<a class="zola-anchor" href="#value-enum" aria-label="Anchor link for: value-enum">§</a>
+</h3>
+<p>Rust has a very <a href="https://www.reddit.com/r/rust/comments/l594zl/everywhere_i_go_i_miss_rusts_enums/">powerful and versatile enums</a>, and we are going to use them to denote in general any types that might come up JSON. Also, because Rust is statically typed, we can not just assign variables with random data (like in Python) or use void pointer (like you might do in C/C++). The program simply won’t compile. So instead we create a enum with wraps around all the data types. We write this enum in <code>src/values.rs</code>.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// values.rs
+
+</span><span style="color:#fa5c4b;">use </span><span style="color:#fdf4c1aa;">std::collections::HashMap;
+
+#[</span><span style="color:#fdf4c1;">derive</span><span style="color:#fdf4c1aa;">(Debug)]
+</span><span style="color:#fa5c4b;">pub enum </span><span style="color:#8ec07c;">Value </span><span style="color:#fdf4c1aa;">{
+    Str(</span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">),
+    Number(</span><span style="color:#fa5c4b;">i32</span><span style="color:#fdf4c1aa;">),
+    Float(</span><span style="color:#fa5c4b;">f32</span><span style="color:#fdf4c1aa;">),
+    Bool(</span><span style="color:#fa5c4b;">bool</span><span style="color:#fdf4c1aa;">),
+    Array(</span><span style="color:#fabd2f;">Vec</span><span style="color:#fdf4c1aa;">&lt;Value&gt;),
+    Object(HashMap&lt;</span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">, Value&gt;),
+    Null
+}
+</span></code></pre>
+<p>In Rust, enum variants can store inside them another data type, and enums can also very easily be pattern-matched, which can be useful for error handling. <code>Vec</code> is just a dynamically-sized array provided by the Rust’s standard library. The types also have angular brackets (<code>&lt; &gt;</code>) after them are using <strong>generics</strong>, similar to C++’s <em>templates</em>.</p>
+<p>The <code>HashMap</code> type takes in 2 generics, one for the <em>key</em> type with which we index and one for <em>value</em> type which is the type which is returned. In our case we index with a <code>String</code>, and get a variant of <code>Value</code> enum.</p>
+<p>At the top of the struct we derived the <em>Debug</em> trait, which auto-magically allows us to print the data type, without us needing to define or implement anything. It is also a type of macro, called <a href="https://doc.rust-lang.org/reference/procedural-macros.html#derive-macros">derive macros</a>. So we can basically do something like:</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> val </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1aa;">Value::Number(</span><span style="color:#d3869b;">123</span><span style="color:#fdf4c1aa;">);
+</span><span style="color:#fabd2f;">println!</span><span style="color:#fdf4c1aa;">(</span><span style="color:#b8bb26;">&quot;</span><span style="color:#fdf4c1;">{:?}</span><span style="color:#b8bb26;">&quot;</span><span style="color:#fdf4c1aa;">, val);
+</span></code></pre>
+<p>and this will give us the output:</p>
+<pre style="background-color:#282828;">
+<code><span style="color:#fdf4c1aa;">Number(123)
+</span></code></pre>
+<p><strong>Traits</strong> in Rust are similar to <em>interfaces</em> in Java of <em>virtual classes</em> in C++, though much simpler so that they are useful but don’t do too much either. Traits allow us to perform <em>duck-typing</em> to some extend (though we won’t use it for this purpose here).</p>
+<p>Lastly, the <code>pub</code> keyword allows us to use this enum in other modules as well.</p>
+<h3 id="parser-struct"><code>Parser</code> struct<a class="zola-anchor" href="#parser-struct" aria-label="Anchor link for: parser-struct">§</a>
+</h3>
+<p>In order to parse the given string we create a struct <code>Parser</code>, which will hold a <em>peekable</em> iterator to the string, and the iterator will return a character on each <code>next()</code> call. We use the standard library’s <code>std::str::Char</code>, which is just the iterator we need. In Rust, anything that implements the <code>Iterator</code> trait becomes a iterator, which provides us with tons of functionalities. Another struct from standard library we use ise <code>std::iter::Peekable</code>, which is also an iterator, just allows us to <em>peek</em> the values instead of consuming them.</p>
+<p>So our struct looks like</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// src/parser.rs
+
+</span><span style="color:#fa5c4b;">use </span><span style="color:#fdf4c1aa;">std::iter::Peekable;
+</span><span style="color:#fa5c4b;">use </span><span style="color:#fdf4c1aa;">std::str::Chars;
+
+</span><span style="color:#fa5c4b;">pub struct </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fdf4c1;">src</span><span style="color:#fdf4c1aa;">: Peekable&lt;Chars&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt;&gt;,
+}
+</span></code></pre>
+<p>Notice that we have given <code>Parser</code> a generic <code>'a</code>, which is a <em>lifetime generic</em>. One of the things Rust guarantees is that if you are allowed to hold a reference to some data, then the data is still valid. You can hold a:</p>
+<ul>
+<li>mutable reference: meaning you have exclusive access to the data</li>
+<li>immutable reference: meaning that there exist multiple references to the data and none of them has exclusive access.</li>
+</ul>
+<p>This allows Rust to prevent data races and other memory problems that are a <a href="https://msrc-blog.microsoft.com/2019/07/16/a-proactive-approach-to-more-secure-code/">major cause of bugs in other languages</a>. These checks are performed at compile time to ensure that there is no performance penalty at runtime (though you can always use <a href="https://doc.rust-lang.org/stable/std/rc/struct.Rc.html">Rc</a> for runtime checks). To do this, Rust introduced the concept of lifetime. Each piece of data or variable has a lifetime associated with it, which denotes for how long during the execution of the program will that piece of data be valid/exist, and compiler doesn’t allow references to exist beyond the lifetime of the data. There are ways to circumvent this checking by the compiler, as the compiler isn’t perfect and is not able to see how long the data will be valid in all possible cases.</p>
+<p>So in our case, the <code>std::str::Chars</code> takes a immutable reference to the string it iterates over, and thus we need to provide the struct with a lifetime to tell the compiler that the struct <code>Parser</code> created should be allowed to live as long as the reference to the string is valid.</p>
+<p>Now let’s add some methods to our struct. We do this by creating an <code>impl</code> block:</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// parser.rs
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">for Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">pub fn </span><span style="color:#8ec07c;">new</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fdf4c1;">src</span><span style="color:#fdf4c1aa;">: </span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">&#39;a str</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fa5c4b;">Self </span><span style="color:#fdf4c1aa;">{
+        Parser {
+            src: src.</span><span style="color:#fabd2f;">chars</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">peekable</span><span style="color:#fdf4c1aa;">(),
+        }
+    }
+}
+</span></code></pre>
+<p>Using <code>new</code> is the standard way most structs are created in Rust, so we also define a similar way to construct the <code>Parser</code> struct. We take a immutable reference to the string being parsed as we don’t need to modify it, only read from it. The lifetime with the reference <code>&amp;'a</code> tells the compiler to check that <code>src</code> is valid atleast as long as the created <code>Parser</code> lives.</p>
+<blockquote>
+<p>Usually Rust compiler is able to figure out lifetimes using <em>lifetime elisions</em>, but in our case it is not. To know about cases when compiler does figure out lifetimes on its own, see <a href="https://doc.rust-lang.org/reference/lifetime-elision.html#lifetime-elision">this</a>.</p>
+</blockquote>
+<p>The <code>chars()</code> method on a <code>str</code> returns a <code>std::str::Chars</code>, and we make it peekable.</p>
+<p>This is it for the 1st part! In the net part we will write some more methods for the <code>Parser</code> struct, and actually parse the string to produce the HashMap.</p>
+
+        </div>
+        
+    
+</div></div>
+            
+    <div class="pagination">
+        <div class="pagination__buttons">
+            </div>
+    </div>
+<footer class="footer">
+                    <div class="footer__inner"><div class="copyright">
+            <span>Powered by <a href="https://www.getzola.org/">Zola</a></span>
+        </div>
+    <script type="text/javascript" src="&#x2F;assets&#x2F;js&#x2F;main.js"></script>
+</div>
+                    
+
+                </footer></div>
+    </center>
+    </body>
+</html>

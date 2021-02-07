@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+    <channel>
+      <title>Abhik Jain</title>
+        <link>/</link>
+        <description>My blog about tech and stuff</description>
+        <generator>Zola</generator>
+        <language>en</language>
+        <atom:link href="/rss.xml" rel="self" type="application/rss+xml"/>
+        <lastBuildDate>Sun, 02 May 2021 00:00:00 +0000</lastBuildDate>
+        <item>
+            <title>Writing a JSON Parser in Rust: Part 2</title>
+            <pubDate>Sun, 02 May 2021 00:00:00 +0000</pubDate>
+            <link>/writing-a-json-parser-in-rust-part-2/</link>
+            <guid>/writing-a-json-parser-in-rust-part-2/</guid>
+            <description>&lt;p&gt;In this blog I will write methods to parse JSON, in continuation of the &lt;a href=&quot;https:&#x2F;&#x2F;abhikjain360.github.io&#x2F;writing-a-json-parser-in-rust-part-1&#x2F;&quot;&gt;previous blog&lt;&#x2F;a&gt;. So far, our &lt;code&gt;parser.rs&lt;&#x2F;code&gt; looks like&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; src&#x2F;parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::iter::Peekable;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::str::Chars;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;src&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;: Peekable&amp;lt;Chars&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt;&amp;gt;,
+}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;new&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;src&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+        Parser {
+            src: src.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;chars&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peekable&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(),
+        }
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;But before we write our parser, let us lay the groundwork of error handling. It is not guaranteed the string passed on the the parser to parse is valid JSON. Instead of simply stopping the program we should give the user of our code some options (pun intended, for those who know Rust) to handle the errors. For this we create again create a enum, whose variants will tell the user which type of error was encountered.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; src&#x2F;parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;ParseError &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+    UnexpectedEOF,
+    UnexpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;char&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;),
+    ExpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;char&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;),
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The syntax enum shouldn’t surprise you any more, because we haven’t introduced anything new since &lt;a href=&quot;https:&#x2F;&#x2F;abhikjain360.github.io&#x2F;writing-a-json-parser-in-rust-part-1&#x2F;#value-enum&quot;&gt;when we defined Values enum&lt;&#x2F;a&gt;. The errors mentioned here are the only ones I am going to use, but if you wish to be more detailed about the errors, feel free to add your own variants and change the following code snippets accordingly.&lt;&#x2F;p&gt;
+&lt;h1 id=&quot;next-and-peek&quot;&gt;&lt;code&gt;next&lt;&#x2F;code&gt; and &lt;code&gt;peek&lt;&#x2F;code&gt;&lt;a class=&quot;zola-anchor&quot; href=&quot;#next-and-peek&quot; aria-label=&quot;Anchor link for: next-and-peek&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h1&gt;
+&lt;p&gt;We can call &lt;code&gt;next&lt;&#x2F;code&gt; on and iterator to consume the next item, and &lt;code&gt;peek&lt;&#x2F;code&gt; to just get a reference to the next item. But these functions don’t directly return the item&#x2F;reference, but instead wrap the return item in &lt;code&gt;Option&amp;lt;T&amp;gt;&lt;&#x2F;code&gt;, which is an enum defined in standard library as:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Option&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;T&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Some&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(T),
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;None
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This allows us (in most cases, &lt;em&gt;forces&lt;&#x2F;em&gt; us) to handle errors explicitly. There are ways to easily unwrap the function, using &lt;code&gt;unwrap&lt;&#x2F;code&gt; of the &lt;code&gt;?&lt;&#x2F;code&gt; operator. So, if we define&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use crate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::parser::Parser;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; parser &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;Parser::new(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;r&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;#&amp;quot;{ &amp;quot;name&amp;quot;: &amp;quot;Mr. Json&amp;quot; }&amp;quot;#&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;then we can access the characters with&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;assert_eq!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(parser.src.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(), &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;{&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;assert_eq!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;parser.src.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(), &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39; &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Note that we had to dereference the pointer when using &lt;code&gt;peek()&lt;&#x2F;code&gt; as it returns a reference to &lt;code&gt;char&lt;&#x2F;code&gt;, and we Rust won’t let us compare a &lt;code&gt;&amp;amp;char&lt;&#x2F;code&gt; to a &lt;code&gt;char&lt;&#x2F;code&gt; (which is unsound anyway for most cases). But typing the entire thing everytime we need to access the next character. So we write ourselves 2 helper functions.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;char&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, ParseError&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.src.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;ok_or&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::UnexpectedEOF)
+    }
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;char&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, ParseError&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.src.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;ok_or&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::UnexpectedEOF)
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;Result&amp;lt;T, E&amp;gt;&lt;&#x2F;code&gt; type is also defined in standard library for error handling. It is similar to &lt;code&gt;Option&amp;lt;T&amp;gt;&lt;&#x2F;code&gt;, except that the error also contains some information, thus there are 2 generics with it.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;T, E&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(T),
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(E)
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;I use &lt;code&gt;Result&lt;&#x2F;code&gt; when I want to return some error information as well, otherwise I use &lt;code&gt;Option&lt;&#x2F;code&gt;. But you can use anything you like, though the convention is to use them according to their name, that is &lt;code&gt;Result&lt;&#x2F;code&gt; where you return a “result”.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;writing-the-parsers-finally&quot;&gt;Writing the parsers, finally&lt;a class=&quot;zola-anchor&quot; href=&quot;#writing-the-parsers-finally&quot; aria-label=&quot;Anchor link for: writing-the-parsers-finally&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;That was a lot of groundwork! But rightly so, because now we can write the parsing methods and not worry about anything else. Note that when actually coding myself I went a lot back and forth in between (I started straight with parser methods, and suffered for it), and the 2 convenience functions we wrote above weren’t there in the original code. So don’t think I am super-smart to have coded things in such perfect order. I just spent a lot of time on it so you don’t have to!&lt;&#x2F;p&gt;
+&lt;p&gt;We will divide the parsing into 3 functions:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;skip_whitespaces()&lt;&#x2F;code&gt; will be used, well, skip whitespaces,&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;parse()&lt;&#x2F;code&gt; will be the function that will be called by user (and thus will be public), and will also deal with anything wrapped in &lt;code&gt;{}&lt;&#x2F;code&gt; and letting the &lt;code&gt;parse_data&lt;&#x2F;code&gt; figure out how to convert things to ke-value pair returing a HaspMap,&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;parse_data()&lt;&#x2F;code&gt; will deal with the key-value stuff, identify the datatype and returns a tupple of a &lt;em&gt;value&lt;&#x2F;em&gt; and it’s &lt;em&gt;key&lt;&#x2F;em&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Let’s start with the easiest one, &lt;code&gt;skip_whitespaces&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use crate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::values::Value;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; peeking at the next char
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; if not whitespace, dont consume it
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;is_whitespace&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+            }
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; else consume it and move on
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+        }
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We simply consume the iterator till we find a character which is not whitespace, and return without consuming the non-whitespace character. Notice the &lt;code&gt;while let&lt;&#x2F;code&gt; pattern matching. The while loop will run till &lt;code&gt;self.peek()&lt;&#x2F;code&gt; does not return an error. We could have handled the case where it returns an error (possibly by returning a &lt;code&gt;Result&lt;&#x2F;code&gt;), but I am not bothering right now. Feel free to do so if you wish.&lt;&#x2F;p&gt;
+&lt;p&gt;Now the following methods are left.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::collections::HashMap;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parse_value&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;Value, ParseError&amp;gt; { &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;*TODO*&#x2F; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;}
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;HashMap&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, Value&amp;gt;, ParseError&amp;gt; { &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;*TODO*&#x2F; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;}
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;parse_value&lt;&#x2F;code&gt; will return the data that comes after the key, for example in the following JSON:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-json&quot; data-lang=&quot;json&quot;&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;name&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;Mr. Json&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;age&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;19
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;parse_value&lt;&#x2F;code&gt; will deal with &lt;code&gt;&amp;quot;Mr. Json&amp;quot;&lt;&#x2F;code&gt; and &lt;code&gt;19&lt;&#x2F;code&gt;, while rest will be dealt by &lt;code&gt;parse&lt;&#x2F;code&gt; itself.&lt;&#x2F;p&gt;
+&lt;p&gt;Let’s first write the &lt;code&gt;parse()&lt;&#x2F;code&gt; function.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;HashMap&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, Value&amp;gt;, ParseError&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; map &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;HashMap::new();
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? != &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;{&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::ExpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;{&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;));
+        }
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; add some code here later
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(map)
+    }
+
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We are creating a new empty HashMap, and returning it. JSON always has to start with &lt;code&gt;&#x27;{&#x27;&lt;&#x2F;code&gt; so we are checking whether that is the case or not. If the rule is violated, we simply return the error.&lt;&#x2F;p&gt;
+&lt;p&gt;Recall that &lt;code&gt;self.next()&lt;&#x2F;code&gt; returns a &lt;code&gt;Result&amp;lt;Value, ParseError&amp;gt;&lt;&#x2F;code&gt;, so we use the &lt;code&gt;?&lt;&#x2F;code&gt; operator on it. This operator unwraps the value if there are no errors, else it simply transmits the error through the function. We can use &lt;code&gt;?&lt;&#x2F;code&gt; operator only when the function in which it is being called returns the same error type as the error type of the result we are unwrapping. We can also ue the operator to unwrap &lt;code&gt;Option&amp;lt;T&amp;gt;&lt;&#x2F;code&gt;, but then we also need to return an &lt;code&gt;Option&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;We will be using similar pattern throughout this function. I am simply pasting the function here are code is pretty simply once you understand the previous code block. We iterate through the string until we reach &lt;code&gt;&#x27;}&#x27;&lt;&#x2F;code&gt;, or we encounter an error.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;HashMap&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, Value&amp;gt;, ParseError&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; map &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;HashMap::new();
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? != &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;{&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::ExpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;{&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;));
+        }
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;loop &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? != &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;&amp;quot;&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::ExpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;&amp;quot;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;));
+            }
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; getting the key
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;is_ascii_alphabetic&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;!= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;_&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::UnexpectedChar(ch));
+            }
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ident &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::from(ch);
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;is_ascii_alphanumeric&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;|| *&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;_&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                    ident &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;else &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+                }
+            }
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? != &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;&amp;quot;&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::ExpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;&amp;quot;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;));
+            }
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? != &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;:&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::ExpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;:&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;));
+            }
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; getting the value and adding key-value pair to the HashMap
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;            map.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ident, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;parse_value&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; Allow single comma even after the last entry
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? == &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;,&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+            }
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; break if closing parenthesis encountered
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;? == &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;}&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+            }
+        }
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(map)
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Next we write the &lt;code&gt;parse_value()&lt;&#x2F;code&gt; method. Notice that in the &lt;code&gt;parse()&lt;&#x2F;code&gt; method we get call &lt;code&gt;parse_value&lt;&#x2F;code&gt; just after we find &lt;code&gt;&#x27;:&#x27;&lt;&#x2F;code&gt;. Thus we only need to parse the value and not the identifier, and just return the value. But before that we skip any whitespaces that might be there.&lt;&#x2F;p&gt;
+&lt;p&gt;We use Rust’s &lt;code&gt;match&lt;&#x2F;code&gt; statements, which allow us to match against patterns really easily.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F;parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parse_value&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;Value, ParseError&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= *&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch {
+            &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; match against all possible characters
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;}
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Rust doesn’t let us get away with matchin against only certain subset of possible cases in &lt;code&gt;match&lt;&#x2F;code&gt;. We need to handle all possible cases. Another thing to keep in mind is that all the arms of &lt;code&gt;match&lt;&#x2F;code&gt; have to return the same datatype, or use the &lt;code&gt;return&lt;&#x2F;code&gt; keyword. Though this won’t be a problem for us.&lt;&#x2F;p&gt;
+&lt;p&gt;I use the following matching logic:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;&#x27;{&#x27;&lt;&#x2F;code&gt; means that it’s a object, and thus we simply call &lt;code&gt;parse()&lt;&#x2F;code&gt; on it.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;&#x27;[&#x27;&lt;&#x2F;code&gt; means that it’s a start of an array. We call a loop and call &lt;code&gt;parse_value()&lt;&#x2F;code&gt; on each comma seperated item untill we reach &lt;code&gt;&#x27;]&#x27;&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;&#x27;&amp;quot;&#x27;&lt;&#x2F;code&gt; means it a string. Again we store all the characters until another &lt;code&gt;&#x27;&amp;quot;&#x27;&lt;&#x2F;code&gt; it reached.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;true&lt;&#x2F;code&gt;, &lt;code&gt;false&lt;&#x2F;code&gt;, or &lt;code&gt;null&lt;&#x2F;code&gt; are dealt with seperately.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;&#x27;0&#x27;&lt;&#x2F;code&gt; to &lt;code&gt;&#x27;9&#x27;&lt;&#x2F;code&gt; means it’s a number of a float. If it contains a decimal dot, then will be considered float alse a number.&lt;&#x2F;li&gt;
+&lt;li&gt;If none matched then return &lt;code&gt;Err(UnexpectedChar)&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;And thus we complete the function.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F;parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parse_value&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;Value, ParseError&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= *&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch {
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;{&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;| Value::Object(map)),
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;[&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; v &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Vec&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::new();
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;]&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+                    } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;else &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                        v.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;parse_value&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+                    }
+
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;skip_whitespaces&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;,&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                        }
+                    }
+                }
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Array(v))
+            }
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;&amp;quot;&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::new();
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;&amp;quot;&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+                    }
+                    s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                }
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Str(s))
+            }
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;t&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;| &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;f&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;| &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;n&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::from(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;());
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;is_ascii_alphabetic&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+                    }
+                    s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                }
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; s.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;as_str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;true&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Bool(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;)),
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;false&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Bool(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;false&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;)),
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;null&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Null),
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;_ =&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::UnexpectedChar(ch)),
+                }
+            }
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;0&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;..=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;9&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;::from(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;());
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; is_float &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;false&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ch) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peek&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;#39;.&amp;#39; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                        is_float &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+                        s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                    } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;else if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;is_numeric&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+                        s &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;ch.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                    } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;else &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+                    }
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+                }
+
+                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; is_float {
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Float(s.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()))
+                } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;else &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Value::Number(s.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()))
+                }
+            }
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;_ =&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(ParseError::UnexpectedChar(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;())),
+        }
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;</description>
+        </item>
+        <item>
+            <title>Writing a JSON Parser in Rust: Part 1</title>
+            <pubDate>Fri, 02 Apr 2021 00:00:00 +0000</pubDate>
+            <link>/writing-a-json-parser-in-rust-part-1/</link>
+            <guid>/writing-a-json-parser-in-rust-part-1/</guid>
+            <description>&lt;p&gt;One of the best ways to get started with parsing strings in a particular programming language is to write a JSON parser, so that’s what we will do. I don’t care terribly about performance, but the code should be easy to write, and written well enough for me to understand when I re-read it again (it often happens that I code so terribly bad or don’t document enough that I am not able to understand what I wrote, I am sure you must have had same experience before 😝).
+In case you want to jump to code directly, the completed code can be found &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;abhikjain360&#x2F;json-parser&quot;&gt;here&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Note that if you want a really good and feature complete JSON parser, try out &lt;a href=&quot;https:&#x2F;&#x2F;docs.serde.rs&#x2F;serde_json&quot;&gt;serde&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;h3 id=&quot;why-use-rust&quot;&gt;Why use Rust ?&lt;a class=&quot;zola-anchor&quot; href=&quot;#why-use-rust&quot; aria-label=&quot;Anchor link for: why-use-rust&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Mainly because I like Rust, and because I hope to make other people realise how awesome Rust is. Probably using Python would have been easier, but anyone who has had experience with Rust will probably tell you Rust if more elegant and fun to code!&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img
+    src=&quot;https:&#x2F;&#x2F;rustacean.net&#x2F;assets&#x2F;cuddlyferris.png&quot;
+    style=&quot;max-width: 25%; height: auto; margin-left: auto; margin-right: auto;&quot;
+&gt;&lt;&#x2F;img&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;why-use-json&quot;&gt;Why use JSON ?&lt;a class=&quot;zola-anchor&quot; href=&quot;#why-use-json&quot; aria-label=&quot;Anchor link for: why-use-json&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;JSON has really easy syntax, and is used often enough that learning how to parse it might turn out to be useful. This is not to say that there aren’t other simpler things to parse (like Toml, Yaml etc.), but I feel JSON is more widely used.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;pre-requisite&quot;&gt;Pre-requisite&lt;a class=&quot;zola-anchor&quot; href=&quot;#pre-requisite&quot; aria-label=&quot;Anchor link for: pre-requisite&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;I will assume some familiarity with programming in general, and knowledge about &lt;a href=&quot;https:&#x2F;&#x2F;www.json.org&#x2F;json-en.html&quot;&gt;JSON’s syntax&lt;&#x2F;a&gt;. You will need to have &lt;a href=&quot;https:&#x2F;&#x2F;rustup.rs&#x2F;&quot;&gt;Rust setup&lt;&#x2F;a&gt; and some knowledge about Rust as well. If you are just starting out I highly recommend the &lt;a href=&quot;https:&#x2F;&#x2F;www.json.org&#x2F;json-en.html&quot;&gt;Rust Book&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;setup&quot;&gt;Setup&lt;a class=&quot;zola-anchor&quot; href=&quot;#setup&quot; aria-label=&quot;Anchor link for: setup&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;If you know how to create a new rust project, you can skip this part. We will use &lt;a href=&quot;https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;stable&#x2F;cargo&#x2F;&quot;&gt;cargo&lt;&#x2F;a&gt; to setup our project. Simply run in a terminal:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;cargo new json-parser
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;It will create a folder named &lt;code&gt;json-parser&lt;&#x2F;code&gt; in directory where ran the command.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;|-- Cargo.toml
+`-- src
+    `-- main.rs
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The code which executes resides in &lt;code&gt;src&#x2F;main.rs&lt;&#x2F;code&gt;. If we look at the contents, we will find a ‘Hello World’ program coded in it.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;println!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;Hello, world!&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;To compile the code, simply run from root directory:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;cargo run
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;or to run with optimizations:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;cargo run --release
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;creating-modules&quot;&gt;Creating Modules&lt;a class=&quot;zola-anchor&quot; href=&quot;#creating-modules&quot; aria-label=&quot;Anchor link for: creating-modules&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;In any codebase, it is always nice to split up code into various files. In this mini-project we will create 3 additional files:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;values.rs&lt;&#x2F;code&gt; : To define the &lt;code&gt;Value&lt;&#x2F;code&gt; enum, which will denote the type of JSON data.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;parser.rs&lt;&#x2F;code&gt; : Will have code to parse the JSON data in &lt;code&gt;str&lt;&#x2F;code&gt; form,&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;macros.rs&lt;&#x2F;code&gt; : This will contain code in which we define macros to allow use to easily deal with JSON data.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;So we create these files in the &lt;code&gt;src&lt;&#x2F;code&gt; directory, so the contents now look like:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;|-- Cargo.toml
+`-- src
+    |-- macros.rs
+    |-- main.rs
+    |-- parser.rs
+    `-- values.rs
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We also import all the files in &lt;code&gt;main.rs&lt;&#x2F;code&gt;, so now it looks like:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; main.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;#![&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;allow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(dead_code)]
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mod &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;macros&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mod &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;mod &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;values&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;println!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;Hello, world!&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;#![allow(dead_code)]&lt;&#x2F;code&gt; at the top is to turn of warning. In general Rust compiler is really aggressive with warnings about dead code, but for now they are just annoying so we disable them. Using them in the &lt;code&gt;main.rs&lt;&#x2F;code&gt; file is enough to disable warnings for the entire project.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;the-plan&quot;&gt;The Plan&lt;a class=&quot;zola-anchor&quot; href=&quot;#the-plan&quot; aria-label=&quot;Anchor link for: the-plan&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Before we set out to write our code, we should create a rough sketch of what we want to create. We will use &lt;code&gt;std::collection::HashMap&lt;&#x2F;code&gt;, and data structure provided by Rust’s standard library which is somewhat similar to Python dictionaries of C++ &lt;code&gt;std::unordered_map&lt;&#x2F;code&gt; in terms of functionality. We want the JSON data to be stored as key-value pairs in the &lt;em&gt;HashMap&lt;&#x2F;em&gt;, and able to generate it  by simply passing a &lt;code&gt;str&lt;&#x2F;code&gt; type.&lt;&#x2F;p&gt;
+&lt;p&gt;Some macros to use this functionality easily would also be nice.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;value-enum&quot;&gt;&lt;code&gt;Value&lt;&#x2F;code&gt; enum&lt;a class=&quot;zola-anchor&quot; href=&quot;#value-enum&quot; aria-label=&quot;Anchor link for: value-enum&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Rust has a very &lt;a href=&quot;https:&#x2F;&#x2F;www.reddit.com&#x2F;r&#x2F;rust&#x2F;comments&#x2F;l594zl&#x2F;everywhere_i_go_i_miss_rusts_enums&#x2F;&quot;&gt;powerful and versatile enums&lt;&#x2F;a&gt;, and we are going to use them to denote in general any types that might come up JSON. Also, because Rust is statically typed, we can not just assign variables with random data (like in Python) or use void pointer (like you might do in C&#x2F;C++). The program simply won’t compile. So instead we create a enum with wraps around all the data types. We write this enum in &lt;code&gt;src&#x2F;values.rs&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; values.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::collections::HashMap;
+
+#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Value &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+    Str(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;),
+    Number(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;),
+    Float(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;),
+    Bool(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;bool&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;),
+    Array(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;Vec&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;Value&amp;gt;),
+    Object(HashMap&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;String&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, Value&amp;gt;),
+    Null
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;In Rust, enum variants can store inside them another data type, and enums can also very easily be pattern-matched, which can be useful for error handling. &lt;code&gt;Vec&lt;&#x2F;code&gt; is just a dynamically-sized array provided by the Rust’s standard library. The types also have angular brackets (&lt;code&gt;&amp;lt; &amp;gt;&lt;&#x2F;code&gt;) after them are using &lt;strong&gt;generics&lt;&#x2F;strong&gt;, similar to C++’s &lt;em&gt;templates&lt;&#x2F;em&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;The &lt;code&gt;HashMap&lt;&#x2F;code&gt; type takes in 2 generics, one for the &lt;em&gt;key&lt;&#x2F;em&gt; type with which we index and one for &lt;em&gt;value&lt;&#x2F;em&gt; type which is the type which is returned. In our case we index with a &lt;code&gt;String&lt;&#x2F;code&gt;, and get a variant of &lt;code&gt;Value&lt;&#x2F;code&gt; enum.&lt;&#x2F;p&gt;
+&lt;p&gt;At the top of the struct we derived the &lt;em&gt;Debug&lt;&#x2F;em&gt; trait, which auto-magically allows us to print the data type, without us needing to define or implement anything. It is also a type of macro, called &lt;a href=&quot;https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;reference&#x2F;procedural-macros.html#derive-macros&quot;&gt;derive macros&lt;&#x2F;a&gt;. So we can basically do something like:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; val &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;Value::Number(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;123&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;println!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;{:?}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, val);
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;and this will give us the output:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;Number(123)
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;strong&gt;Traits&lt;&#x2F;strong&gt; in Rust are similar to &lt;em&gt;interfaces&lt;&#x2F;em&gt; in Java of &lt;em&gt;virtual classes&lt;&#x2F;em&gt; in C++, though much simpler so that they are useful but don’t do too much either. Traits allow us to perform &lt;em&gt;duck-typing&lt;&#x2F;em&gt; to some extend (though we won’t use it for this purpose here).&lt;&#x2F;p&gt;
+&lt;p&gt;Lastly, the &lt;code&gt;pub&lt;&#x2F;code&gt; keyword allows us to use this enum in other modules as well.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;parser-struct&quot;&gt;&lt;code&gt;Parser&lt;&#x2F;code&gt; struct&lt;a class=&quot;zola-anchor&quot; href=&quot;#parser-struct&quot; aria-label=&quot;Anchor link for: parser-struct&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;In order to parse the given string we create a struct &lt;code&gt;Parser&lt;&#x2F;code&gt;, which will hold a &lt;em&gt;peekable&lt;&#x2F;em&gt; iterator to the string, and the iterator will return a character on each &lt;code&gt;next()&lt;&#x2F;code&gt; call. We use the standard library’s &lt;code&gt;std::str::Char&lt;&#x2F;code&gt;, which is just the iterator we need. In Rust, anything that implements the &lt;code&gt;Iterator&lt;&#x2F;code&gt; trait becomes a iterator, which provides us with tons of functionalities. Another struct from standard library we use ise &lt;code&gt;std::iter::Peekable&lt;&#x2F;code&gt;, which is also an iterator, just allows us to &lt;em&gt;peek&lt;&#x2F;em&gt; the values instead of consuming them.&lt;&#x2F;p&gt;
+&lt;p&gt;So our struct looks like&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; src&#x2F;parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::iter::Peekable;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::str::Chars;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;src&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;: Peekable&amp;lt;Chars&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt;&amp;gt;,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Notice that we have given &lt;code&gt;Parser&lt;&#x2F;code&gt; a generic &lt;code&gt;&#x27;a&lt;&#x2F;code&gt;, which is a &lt;em&gt;lifetime generic&lt;&#x2F;em&gt;. One of the things Rust guarantees is that if you are allowed to hold a reference to some data, then the data is still valid. You can hold a:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;mutable reference: meaning you have exclusive access to the data&lt;&#x2F;li&gt;
+&lt;li&gt;immutable reference: meaning that there exist multiple references to the data and none of them has exclusive access.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;This allows Rust to prevent data races and other memory problems that are a &lt;a href=&quot;https:&#x2F;&#x2F;msrc-blog.microsoft.com&#x2F;2019&#x2F;07&#x2F;16&#x2F;a-proactive-approach-to-more-secure-code&#x2F;&quot;&gt;major cause of bugs in other languages&lt;&#x2F;a&gt;. These checks are performed at compile time to ensure that there is no performance penalty at runtime (though you can always use &lt;a href=&quot;https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;stable&#x2F;std&#x2F;rc&#x2F;struct.Rc.html&quot;&gt;Rc&lt;&#x2F;a&gt; for runtime checks). To do this, Rust introduced the concept of lifetime. Each piece of data or variable has a lifetime associated with it, which denotes for how long during the execution of the program will that piece of data be valid&#x2F;exist, and compiler doesn’t allow references to exist beyond the lifetime of the data. There are ways to circumvent this checking by the compiler, as the compiler isn’t perfect and is not able to see how long the data will be valid in all possible cases.&lt;&#x2F;p&gt;
+&lt;p&gt;So in our case, the &lt;code&gt;std::str::Chars&lt;&#x2F;code&gt; takes a immutable reference to the string it iterates over, and thus we need to provide the struct with a lifetime to tell the compiler that the struct &lt;code&gt;Parser&lt;&#x2F;code&gt; created should be allowed to live as long as the reference to the string is valid.&lt;&#x2F;p&gt;
+&lt;p&gt;Now let’s add some methods to our struct. We do this by creating an &lt;code&gt;impl&lt;&#x2F;code&gt; block:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; parser.rs
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;for Parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;new&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;src&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;&amp;#39;a str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) -&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+        Parser {
+            src: src.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;chars&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fabd2f;&quot;&gt;peekable&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(),
+        }
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Using &lt;code&gt;new&lt;&#x2F;code&gt; is the standard way most structs are created in Rust, so we also define a similar way to construct the &lt;code&gt;Parser&lt;&#x2F;code&gt; struct. We take a immutable reference to the string being parsed as we don’t need to modify it, only read from it. The lifetime with the reference &lt;code&gt;&amp;amp;&#x27;a&lt;&#x2F;code&gt; tells the compiler to check that &lt;code&gt;src&lt;&#x2F;code&gt; is valid atleast as long as the created &lt;code&gt;Parser&lt;&#x2F;code&gt; lives.&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Usually Rust compiler is able to figure out lifetimes using &lt;em&gt;lifetime elisions&lt;&#x2F;em&gt;, but in our case it is not. To know about cases when compiler does figure out lifetimes on its own, see &lt;a href=&quot;https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;reference&#x2F;lifetime-elision.html#lifetime-elision&quot;&gt;this&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;The &lt;code&gt;chars()&lt;&#x2F;code&gt; method on a &lt;code&gt;str&lt;&#x2F;code&gt; returns a &lt;code&gt;std::str::Chars&lt;&#x2F;code&gt;, and we make it peekable.&lt;&#x2F;p&gt;
+&lt;p&gt;This is it for the 1st part! In the net part we will write some more methods for the &lt;code&gt;Parser&lt;&#x2F;code&gt; struct, and actually parse the string to produce the HashMap.&lt;&#x2F;p&gt;
+</description>
+        </item>
+        <item>
+            <title>The 186th Carnival of Mathematics</title>
+            <pubDate>Sat, 01 Aug 2020 00:00:00 +0000</pubDate>
+            <link>/the-186th-carnival-of-mathematics/</link>
+            <guid>/the-186th-carnival-of-mathematics/</guid>
+            <description>&lt;p&gt;Hi!&lt;&#x2F;p&gt;
+&lt;p&gt;Welcome to the 186th Carnival of Mathematics, with your host Abhik Jain (if you don’t know about Carnival of Mathematics, &lt;a href=&quot;https:&#x2F;&#x2F;aperiodical.com&#x2F;carnival-of-mathematics&#x2F;&quot;&gt;check here&lt;&#x2F;a&gt;).&lt;&#x2F;p&gt;
+&lt;p&gt;Lets start off with some fun facts about the number 186:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;The sum of factors of 186 is greater than 186.&lt;&#x2F;li&gt;
+&lt;li&gt;Kepler-&lt;strong&gt;186&lt;&#x2F;strong&gt;f is an exoplanet, is one of the first planets observed by astronomers which has same radius as earth, and was in the &lt;a href=&quot;https:&#x2F;&#x2F;exoplanets.nasa.gov&#x2F;resources&#x2F;323&#x2F;goldilocks-zone&#x2F;&quot;&gt;Goldilocks Zone&lt;&#x2F;a&gt; of it’s star (the distance range from star where water can exist in liquid state).&lt;&#x2F;li&gt;
+&lt;li&gt;It is a product of 3 distinct primes (\( 186 = 2 \times 3 \times 31 \)), and thus can have only 8 divisors formed by their combination (\(2^3 = 8\))&lt;&#x2F;li&gt;
+&lt;li&gt;Hexadecimal representation of 186 is \(\text{BA}\)&lt;&#x2F;li&gt;
+&lt;li&gt;the &lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;SHA-2&quot;&gt;SHA-256&lt;&#x2F;a&gt; hash of a file containing ‘186’ is \(\text{aaeeefc8f66b433fc4079c06b096c2d63fb9e012d5038eeb8d35cbb9d2110d84}\)&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Now, moving onto the interesting maths stuff that happened this month.&lt;&#x2F;p&gt;
+&lt;p&gt;Many people are now attending online meeting, either via zoom, Google Meets etc. which are often boring. Add some fun to those meeting with these &lt;a href=&quot;https:&#x2F;&#x2F;www.vanishingincmagic.com&#x2F;blog&#x2F;CATO&quot;&gt;card tricks&lt;&#x2F;a&gt; that can be performed in online meetings.&lt;&#x2F;p&gt;
+&lt;p&gt;9&lt;sup&gt;th&lt;&#x2F;sup&gt; marks the birthday of Dennis Ritchie, a famous computer scientist and the creator of many things on which modern computer infrastructure depends upon (including, but not limited to C programming language and the Unix operating system).&lt;&#x2F;p&gt;
+&lt;p&gt;What do you do when you come across a bunch of cubes with missing edges? Obviously, you put them in a soap solution and see what sort of soap films form around the loops of the incomplete cube (hint: they try to cover the minimum surface area). Kartik Chandra (aka hardmath123) has written the code to simulate this for us so we don’t need to. You can read more about this on his &lt;a href=&quot;http:&#x2F;&#x2F;hardmath123.github.io&#x2F;minimal-surface.html&quot;&gt;blog post&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;Often proofs in geometry are accompanied by beautiful (or sometimes not so beautiful) diagrams. Some of these diagrams have inspired people to create art based on them. Check out this &lt;a href=&quot;https:&#x2F;&#x2F;www.futilitycloset.com&#x2F;2020&#x2F;09&#x2F;04&#x2F;art-and-artifice-2&#x2F;&quot;&gt;post on Futility Closet&lt;&#x2F;a&gt; to find out more about them.&lt;&#x2F;p&gt;
+&lt;p&gt;Speaking of geometry, want to try out a cool geometry problem that can be solved using high school mathematics? In &lt;a href=&quot;https:&#x2F;&#x2F;blog.mathoffthegrid.com&#x2F;2020&#x2F;09&#x2F;cool-geometry-problem-redux.html&quot;&gt;this post&lt;&#x2F;a&gt; by Benjamin Leis, where he presents the problem and an interesting solution to it.&lt;&#x2F;p&gt;
+&lt;p&gt;In the famous science fiction book The Hitchhiker’s Guide to the Galaxy by Douglas Adams, the super computer Deep Thought, created to answer the “Great Question” of “Life Universe and Everything”, gave the answer 42 (and later they discover that the answer is right but the question was itself wrong, and so they created another supercomputer “Earth” to find the right question). The answer now is famous, appearing on various shows and even shows on Googling the question. Jean-Paul Delahaye discusses more about the number and it’s various apperances &lt;a href=&quot;https:&#x2F;&#x2F;www.scientificamerican.com&#x2F;article&#x2F;for-math-fans-a-hitchhikers-guide-to-the-number-42&#x2F;&quot;&gt;here&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;Mathematics has had great discoveries in last century, yet most of the curricula used in teaching mathematics has largely remained unchanged. The origins of the current curriculum can be traced back to 1892. Is it about time we change that? I don’t know the answer, but maybe you can find some insights in &lt;a href=&quot;https:&#x2F;&#x2F;www.salon.com&#x2F;2020&#x2F;09&#x2F;26&#x2F;teaching-data-science-instead-of-calculus-high-schools-math-debate&#x2F;&quot;&gt;this post&lt;&#x2F;a&gt; by &lt;a href=&quot;https:&#x2F;&#x2F;www.cs.dartmouth.edu&#x2F;%7Erockmore&#x2F;&quot;&gt;Daniel Rockmore&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;Often time people new to mathematics beyond high school (myself included) find ourselves stuck with some problem or some theorem we can not understand. This state of being stuck is normal, but we are not taught that in high school, instead we are required to produce correct answers. Being stuck is a part of the process while learning and doing maths. Ben Orlin discusses more about it on his &lt;a href=&quot;https:&#x2F;&#x2F;mathwithbaddrawings.com&#x2F;2017&#x2F;09&#x2F;20&#x2F;the-state-of-being-stuck&#x2F;&quot;&gt;blog&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;In the September podcast of &lt;a href=&quot;https:&#x2F;&#x2F;podcasts.google.com&#x2F;feed&#x2F;aHR0cHM6Ly9rcGtudWRzb24uY29tL215LWZhdm9yaXRlLXRoZW9yZW0_Zm9ybWF0PXJzcw?sa=X&amp;amp;ved=2ahUKEwjwgtSjxYbsAhW6DLcAHTM5DyAQ4aUDegQIARAC&quot;&gt;My Favorite Theorem&lt;&#x2F;a&gt;, in which Susan D’Agostino talks about her favourite theorem, the &lt;a href=&quot;https:&#x2F;&#x2F;people.math.osu.edu&#x2F;fiedorowicz.1&#x2F;math655&#x2F;Jordan.html#:%7E:text=The%20Jordan%20curve%20theorem%20is,theorem%2C%20let%20alone%20prove%20it.&quot;&gt;Jordan Curve Theorem&lt;&#x2F;a&gt;, which tells us that every simple closed curve separates a 2D plane into 2 parts (inside and outside). This theorem seemed so intuitively  obvious that no one bother proving it, but it is rather difficult to prove.&lt;&#x2F;p&gt;
+&lt;p&gt;Recently, David Conlon and Asaf Ferber have released a &lt;a href=&quot;https:&#x2F;&#x2F;arxiv.org&#x2F;abs&#x2F;2009.10458&quot;&gt;paper on ArXiv&lt;&#x2F;a&gt; talking about new lower limit to Ramsey’s theorem, which states that in a complete graph with \(n\) or greater vertices  (where \(n\) is finite), if we color it with \(l\) different colors, we will certainly find get complete graph of order \(t\). Gil Kalai talks more about it in his blogpost &lt;a href=&quot;https:&#x2F;&#x2F;gilkalai.wordpress.com&#x2F;2020&#x2F;09&#x2F;23&#x2F;to-cheer-you-up-in-difficult-times-12-asaf-ferber-and-david-conlon-found-new-lower-bounds-for-diagonal-ramsey-numbers&#x2F;&quot;&gt;here&lt;&#x2F;a&gt;. (If you don’t understand any of this graph theory jargon, I highly recommend checking out these &lt;a href=&quot;https:&#x2F;&#x2F;www.youtube.com&#x2F;watch?v=7p76yYMth5A&amp;amp;ab_channel=EddieSantiagoBeck&quot;&gt;small lectures&lt;&#x2F;a&gt; by Kaj Hensen).&lt;&#x2F;p&gt;
+&lt;p&gt;In the 61&lt;sup&gt;st&lt;&#x2F;sup&gt; International Mathematical Olympiad, we have now &lt;a href=&quot;https:&#x2F;&#x2F;www.quantamagazine.org&#x2F;at-the-international-mathematical-olympiad-artificial-intelligence-prepares-to-go-for-the-gold-20200921&#x2F;&quot;&gt;Artificial Intelligence competing&lt;&#x2F;a&gt; against humans. IMO provides a ideal place to test AI in a field humans are still better, in Mathematical Thinking.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;Vaughan_Jones&quot;&gt;Sir Vaughan Jones&lt;&#x2F;a&gt;, a Fields Medal winning mathematician who has contributed significantly to knot theory, sadly passed on 6&lt;sup&gt;th&lt;&#x2F;sup&gt; September, 2020 at the age of 67.&lt;&#x2F;p&gt;
+</description>
+        </item>
+        <item>
+            <title>Threadpooling in C++</title>
+            <pubDate>Wed, 17 Jun 2020 00:00:00 +0000</pubDate>
+            <link>/multithreading-in-c/</link>
+            <guid>/multithreading-in-c/</guid>
+            <description>&lt;p&gt;I wanted to use a threadpool for a certain project of mine, and there were a lot of implementations of them on github, but many of them simply pasted the code with little explanation, and there weren’t many tutorials (&lt;em&gt;easy&lt;&#x2F;em&gt; tutorials) that I could follow right up.&lt;&#x2F;p&gt;
+&lt;p&gt;I eventually managed to make a simple one for myself, and is good enough for almost all personal projects I do. In this blog, I’ll help you recreate my code, explaining stuff that someone who doesn’t know much about threadpooling (and multithreading in general) can still follow. I do assume some familiarity with C++ coding, and also with some standard libraries like &lt;code&gt;iostream&lt;&#x2F;code&gt; and &lt;code&gt;vector&lt;&#x2F;code&gt; and concept of classes.&lt;&#x2F;p&gt;
+&lt;p&gt;This tutorial isn’t meant for people looking for super-optimized multithreaded calculations. For that there are much better libraries out there.&lt;&#x2F;p&gt;
+&lt;p&gt;If you are wondering how it’s different from other tutorials, well it’s pretty much same really 😅. I just go in depth and try do explain every bit of code I feel new C++ programmers might not know. By the end you’ll have made a simple but useful threadpool header file, which you can use practically anywhere.&lt;&#x2F;p&gt;
+&lt;p&gt;You can find my code for reference &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;abhikjain360&#x2F;threadpool&quot;&gt;here&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;why-multithread&quot;&gt;Why multithread?&lt;a class=&quot;zola-anchor&quot; href=&quot;#why-multithread&quot; aria-label=&quot;Anchor link for: why-multithread&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;The answer is obvious. All modern (by modern I mean by all PCs and laptops since 2005) computers have more than one core, let’s use them all! It’s faster, and a better use of resources. There might be some cases where you can’t run processes in parallel, like the new process depending upon the output of current one. But those are the odd ones. As we’ll see, multithreading can outperform simple code even for small test cases. There are many instances where algorithms by design are meant to be run in parallel (like matrix multiplication where each element of resultant matrix can be calculated independently of other, allowing us to compute then in parallel).&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;why-use-a-threadpool&quot;&gt;Why use a threadpool?&lt;a class=&quot;zola-anchor&quot; href=&quot;#why-use-a-threadpool&quot; aria-label=&quot;Anchor link for: why-use-a-threadpool&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Though your CPU can run a lot more &lt;em&gt;virtual&lt;&#x2F;em&gt; threads than number of cores it has, that doesn’t mean all those threads run in parallel. Each new thread waits for previous threads to finish. If there are no &lt;em&gt;physical&lt;&#x2F;em&gt; threads free, it’ll have to wait. Also assigning these &lt;em&gt;virtual&lt;&#x2F;em&gt; threads is a rather expensive task. It often happens that if we assign threads carelessly without bothering about how much threads are we actually creating, any benefit multithreading could provide would become insignificant compared to sheer cost of assigning so many threads.&lt;&#x2F;p&gt;
+&lt;p&gt;Threadpooling is creating a fixed number of threads and then re-using them again &amp;amp; again. As we’ll see, this outperforms assigning random threads even in small test cases (which I mentioned can outperform normal code).&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;a class=&quot;zola-anchor&quot; href=&quot;#introduction&quot; aria-label=&quot;Anchor link for: introduction&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;race-condition&quot;&gt;Race Condition&lt;a class=&quot;zola-anchor&quot; href=&quot;#race-condition&quot; aria-label=&quot;Anchor link for: race-condition&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Let’s imagine 2 threads running is parallel, and both have access to a single variable &lt;em&gt;i&lt;&#x2F;em&gt;, and modify it by incrementing it by 1, without caring whether the other thread is also using &lt;em&gt;i&lt;&#x2F;em&gt; during the incrementing. Thus both have access to it without any bounds or checks. This is a really bad situation. Guess why?&lt;&#x2F;p&gt;
+&lt;p&gt;Assume &lt;em&gt;i&lt;&#x2F;em&gt; has initial value 5. Let’s imagine thread 1 accessed &lt;em&gt;i&lt;&#x2F;em&gt; and made a copy of it. At the same time thread 2 also made a copy of &lt;em&gt;i&lt;&#x2F;em&gt;. Then both threads incremented &lt;em&gt;i&lt;&#x2F;em&gt; by one making its copy in each thread equal to 6, and then putting the value back in &lt;em&gt;i&lt;&#x2F;em&gt;. Now the value of &lt;em&gt;i&lt;&#x2F;em&gt; is 6, but what we wanted to do was to each thread to increment value once, thus resulting in &lt;em&gt;i&lt;&#x2F;em&gt; being seven. But because threads did the increment without being aware of other threads, &lt;em&gt;i&lt;&#x2F;em&gt; only got incremented once. This situtation is called &lt;em&gt;race condition&lt;&#x2F;em&gt;, and is often not desirable.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;mutex-locks-and-atomic-types&quot;&gt;Mutex Locks and Atomic types&lt;a class=&quot;zola-anchor&quot; href=&quot;#mutex-locks-and-atomic-types&quot; aria-label=&quot;Anchor link for: mutex-locks-and-atomic-types&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Mutex is a way to ensure that some data&#x2F;resource that is being shared between threads can be used by only one thread at a time. Thus, it helps with the race condition. Basically, when a mutex lock is put on a certain part of code, that part of code can be executed by only one thread at once. By putting locks around the code where the variables shared by multiple threads are accessed&#x2F;changed, we can prevent race condition.&lt;&#x2F;p&gt;
+&lt;p&gt;Mutex locks can used in cpp using the &lt;code&gt;#include &amp;lt;mutex&amp;gt;&lt;&#x2F;code&gt;. There are various mutex locks available in the library, and each one depends upon the use case. After initializing a mutex variable, one can different locks on it.&lt;&#x2F;p&gt;
+&lt;p&gt;One of the most basic ways is to directly use the &lt;code&gt;lock&lt;&#x2F;code&gt;  and &lt;code&gt;unlock&lt;&#x2F;code&gt; function of the mutex. &lt;code&gt;lock_guard&lt;&#x2F;code&gt; is also an option which unlock as soon as it goes out of scope, but it has nearly deprecated and &lt;code&gt;scoped_lock&lt;&#x2F;code&gt; is used.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;mutex&amp;gt;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;int &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+	std::mutex mu;
+
+	&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; locking using mutex&amp;#39;s method
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;	mu.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;lock&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+		&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; code
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;	mu.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;unlock&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+	&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; locking using lock_guard
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+		std::lock_guard&amp;lt;std::mutex&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;lockGuard(mu)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+		&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; code
+
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F;goes out of scope here
+
+	&#x2F;&#x2F; locking using scoped_lock (Since C++17)
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+		std::scoped_lock&amp;lt;std::mutex&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;scopeLock(mu)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+		&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F; code
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#928374;&quot;&gt;&#x2F;&#x2F;goes out of scope here
+
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;For our pupose, we’ll use &lt;code&gt;unique_lock&lt;&#x2F;code&gt;, which is very similiar to &lt;code&gt;lock_guard&lt;&#x2F;code&gt; as it is required by conditional variable in wait call (will be discussed in more detail later).&lt;&#x2F;p&gt;
+&lt;p&gt;Note thread although using locks ensures thread safety, they are huge overhead. Sometimes, running on multiple threads might be slower than running on single thread if we are locking and unlocking too much. Thus, try to use locks as less often as you can, and don’t do heavy things when lock is on, or else your program might loose a lot of speed while consuming much more resources.&lt;&#x2F;p&gt;
+&lt;p&gt;Another way to ensure thread safety is use &lt;em&gt;atomic types&lt;&#x2F;em&gt;, available since C++17.  We can wrap the shared variable with an atomic type, and it’ll automatically make sure that one thread accesses&#x2F;modifies it at time, allowing us to write &lt;em&gt;lock-free&lt;&#x2F;em&gt; code. Using atomic types, is arguably more easy and faster than using locks. But using atomic types come with it’s own set of complications (like how it stores the entire variable in local cache), and we don’t want to get into it now.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;condition-variables&quot;&gt;Condition variables&lt;a class=&quot;zola-anchor&quot; href=&quot;#condition-variables&quot; aria-label=&quot;Anchor link for: condition-variables&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Conditional variables allow us to control the execution and timing of threads based on certain conditions. This allows for a greater control on order of execution of commands, which would otherwise be out of control, again possibly leading to race conditions. Conditional variables allow us to send &lt;em&gt;notifications&lt;&#x2F;em&gt; to threads, using the &lt;code&gt;notify_one&lt;&#x2F;code&gt; and &lt;code&gt;notify_all&lt;&#x2F;code&gt; functions.&lt;&#x2F;p&gt;
+&lt;p&gt;For example, we have 2 variable &lt;code&gt;i&lt;&#x2F;code&gt; and &lt;code&gt;j&lt;&#x2F;code&gt;, and we want that &lt;code&gt;i&lt;&#x2F;code&gt; gets incremented only after &lt;code&gt;j&lt;&#x2F;code&gt; is greater than 5. We can create a mutex, and put it under a lock. This lock will be under a condtional variable and wait till condition is met.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;thread&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;mutex&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;conditional_variable&amp;gt;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;int&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; j &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, i &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+std::mutex mu;
+std::conditional_variable cond;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;waitForCond&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+	std::unique_lock&amp;lt;std::mutex&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;lock(mu)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+	cond.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;wait&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(lock);
+
+	i &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;increment_j&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;int&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; k  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;; k &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;lt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;10&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;++&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;k) {
+		j &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;+= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+		&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(j &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;5&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;)
+			cond.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;notify_one&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+	}
+}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;int &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+	std::thread &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;worker1(waitForCond)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+	std::thread &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;worker2(increment_j)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+}
+
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We will use condition variables in threadpool to keep the created threads on hold until a new task has been alloted, after which we can take a task of the the task list and run it.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;let-s-start&quot;&gt;Let’s start!&lt;a class=&quot;zola-anchor&quot; href=&quot;#let-s-start&quot; aria-label=&quot;Anchor link for: let-s-start&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h2&gt;
+&lt;p&gt;First we’ll create a project root directory, which I name threadpool (rather unimaginative, I know). In this we create a &lt;code&gt;threadpool.h&lt;&#x2F;code&gt; header file. First some headers.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#pragma&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; once
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;thread&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;vector&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;queue&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;#pragma once&lt;&#x2F;code&gt; at the top is to avoid including library again in projects having more than a few files. &lt;code&gt;thread&lt;&#x2F;code&gt; library allows us to access the CPU threads. We will use a vector to store our execution threads, and a queue to store our tasks as functions.&lt;&#x2F;p&gt;
+&lt;p&gt;Let’s create a class named threadpool. We define an alias for function types, and call it &lt;code&gt;Task&lt;&#x2F;code&gt;. In order to define &lt;code&gt;Task&lt;&#x2F;code&gt;, we need to include &lt;code&gt;functional&lt;&#x2F;code&gt; library as well.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#pragma&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; once
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;thread&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;vector&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;queue&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b8bb26;&quot;&gt;&amp;lt;functional&amp;gt;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;class &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;threadpool &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;public&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;:
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;using &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;Task &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; std::function&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;void&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()&amp;gt;;
+
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;private&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;:
+	std::vector&amp;lt;std::thread&amp;gt; threads;
+	std::queue&amp;lt;Task&amp;gt; tasks;
+};
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Creating a execution thread is rather simple. We can create one by writing&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;thread&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;function_pointer&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;...&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;)
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;where &lt;code&gt;function_pointer&lt;&#x2F;code&gt; is the pointer to the function you want to give to threadpool, and corresponding arguments. A point to keep in mind is that when creating a thread, it’ll &lt;em&gt;move&lt;&#x2F;em&gt; the non-primitive data types, meaning you no longer would be able to access them. So if there is an variable&#x2F;object you want to use again, you have to pass a reference to that object using &lt;code&gt;std::ref()&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;Whenever we run a C++ application, we atleast use 1 thread, executing the code in the &lt;code&gt;main&lt;&#x2F;code&gt; function, one line at a time. This is called &lt;em&gt;main threads&lt;&#x2F;em&gt;. When we run a C++ application which uses multiple threads, there will still be 1 main thread, which starts when the application starts, and stops when the application stops. Now this main thread runs independent of other threads that we create during the execution of the application, called &lt;em&gt;child threads&lt;&#x2F;em&gt;. But as main function runs on independent thread, it won’t wait for other threads to finish, and terminate the application, unless spefically asked to wait for other threads to finish.&lt;&#x2F;p&gt;
+&lt;p&gt;We can ask main thread to wait for other threads by using &lt;code&gt;join()&lt;&#x2F;code&gt;. This can be done by saving the construction of &lt;code&gt;std::thread&lt;&#x2F;code&gt; in a variable, and then joining it.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;std::thread &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;worker&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;function_pointer&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;, args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;...&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;);
+worker.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;join&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;So in our constructor of threadpool, we need to create a bunch of threads, push them in the &lt;code&gt;std::vector&amp;lt;std::thread&amp;gt; threads&lt;&#x2F;code&gt;, and in our deconstructor we need to join all these vectors. We’ll also create a function to add Tasks at the back queue &lt;code&gt;tasks&lt;&#x2F;code&gt; and pop out tasks from front, giving it to each thread.&lt;&#x2F;p&gt;
+&lt;p&gt;One question remains, that when we create threads to push back in &lt;code&gt;threads&lt;&#x2F;code&gt; vector, what function and arguments are we going to pass to constructor of the &lt;code&gt;std::thread&lt;&#x2F;code&gt;?&lt;&#x2F;p&gt;
+&lt;p&gt;We can not simply pass the task in front of queue &lt;code&gt;tasks&lt;&#x2F;code&gt;, for it’ll create a thread for each task. That is no different than how one will use thread without a threadpool. Instead, we’ll pass a function, which on finding the queue of tasks non-empty, executes the task at front of the queue, and then pops it off so that it doesn’t get executed more than once by different threads, and keeps on running until the threadpool object is not destroyed. That’s it. This is the most important part of threadpooling.&lt;&#x2F;p&gt;
+&lt;p&gt;Another thing to keep in mind is to avoid a problem which comes with using multiple threads at once, the problem of data races. But we will for now pretend that such a problem doesn’t exist, and simply focus on making our threadpool class. Note that threadpool won’t be usable until be actually use mutex and remove possibility of data races.&lt;&#x2F;p&gt;
+&lt;p&gt;Also from now on instead of writing entire program when we update our code, I’ll just put the updated part with enough context to let you know where to put the code, to make things easy for both of us.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;the-thread-manager-function&quot;&gt;The thread_manager function&lt;a class=&quot;zola-anchor&quot; href=&quot;#the-thread-manager-function&quot; aria-label=&quot;Anchor link for: the-thread-manager-function&quot;&gt;§&lt;&#x2F;a&gt;
+&lt;&#x2F;h3&gt;
+&lt;p&gt;Before we write the constructor and deconstructor for the threadpool class, we’ll write the function to pass onto the threads we create. This function will execute functions from the tasks queue, as mentioned before. We also want to be able to stop thread when we destroy the threadpool object, we’ll create a new variable &lt;code&gt;bool stopvar&lt;&#x2F;code&gt; which will keep track of when to stop the thread. We will set it to &lt;code&gt;false&lt;&#x2F;code&gt; when creating threadpool.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#282828;&quot;&gt;
+&lt;code class=&quot;language-cpp&quot; data-lang=&quot;cpp&quot;&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;class &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;threadpool &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;{
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;private&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;:
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;thread_manager&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+
+	std::vector&amp;lt;std::thread&amp;gt; threads;
+	std::queue&amp;lt;Task&amp;gt; tasks;
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;bool&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; stopvar;
+};
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;threadpool::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#8ec07c;&quot;&gt;thread_manager&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;() {
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;while &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d3869b;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;) {
+		Task task;
+		{
+			&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;(stopvar &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;&amp;amp;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt; tasks.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;empty&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;()) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fa5c4b;&quot;&gt;break&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+
+			task &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fe8019;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;std::move(tasks.front())&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+			tasks.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;pop&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;();
+		}
+		&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1;&quot;&gt;task()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#fdf4c1aa;&quot;&gt;;
+	}
+}
+
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;</description>
+        </item>
+    </channel>
+</rss>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/slideout/1.0.1/slideout.min.js"></script>
+	
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.css" integrity="sha384-9eLZqc9ds8eNjO3TmqPeYcDj8n+Qfa4nuSiGYa6DjLNcv9BtN69ZIulL9+8CqC9Y" crossorigin="anonymous">
+
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.js" integrity="sha384-K3vbOmF2BtaVai+Qk37uypf7VrgBubhQreNQe9aGsz9lB63dIFiQVlJbr92dw2Lx" crossorigin="anonymous"></script>
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/mathtex-script-type.min.js" integrity="sha384-zWYbd0NBwgTsgIdFKVprSfTh1mbMPe5Hz1X3yY4Sd1h/K1cQoUe36OGwAGz/PcDy" crossorigin="anonymous"></script>
+	    
+			<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/auto-render.min.js" integrity="sha384-kmZOZB5ObwgQnS/DuDg6TScgOiWWBiVt0plIRkZCmE6rDZGrEOQeHM5PcHi+nyqe" crossorigin="anonymous"
+	        onload="renderMathInElement(document.body);"></script>
+	    
+	
+
+			
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E22MG5SJXW"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-E22MG5SJXW');
+</script>
+
+    <title>Threadpooling in C++ - Abhik Jain</title>
+    
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="description" content="My blog about tech and stuff"/>
+
+    <meta property="og:title" content="
+    Abhik Jain -&nbsp;Threadpooling in C++" />
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="&#x2F;multithreading-in-c&#x2F;"/>
+    <meta property="og:description" content="My blog about tech and stuff"/>
+    <link rel="stylesheet" href="&#x2F;style.css">
+    <link rel="stylesheet" href="&#x2F;color&#x2F;gruvbox.css">
+<link rel="alternate" type="application/rss+xml" title="Abhik Jain RSS" href="&#x2F;rss.xml"></head>
+    <body>
+    <center>
+        <div class="container">
+<header class="header">
+    <div class="header__inner">
+        <div class="header__logo">
+            <a href="&#x2F;">
+    <div class="logo">
+        Abhik Jain
+    </div>
+</a>
+        </div>
+        <div class="menu-trigger">menu</div>
+    </div>
+    
+    <nav class="menu">
+        <ul class="menu__inner menu__inner--desktop">
+            
+            
+                    <li>
+                        <a href="&#x2F;about">about</a>
+                    </li>
+                
+                    <li>
+                        <a href="&#x2F;contact">contact</a>
+                    </li>
+                
+            </ul>
+
+        <ul class="menu__inner menu__inner--mobile">
+            
+        <li>
+            <a href="&#x2F;about">about</a>
+        </li>
+        <li>
+            <a href="&#x2F;contact">contact</a>
+        </li>
+        </ul>
+    </nav>
+
+    </header>
+<div class="content"><div class="post">
+        <h1 class="post-title">
+            <a href="&#x2F;multithreading-in-c&#x2F;">Threadpooling in C++</a>
+        </h1>
+        
+    <div class="post-meta">
+        <span class="post-date">2020.06.17
+                </span>
+
+        <span class="post-author">
+    ::
+    Abhik Jain</span>
+
+        
+
+    
+    :: {<a href="&#x2F;categories&#x2F;programming&#x2F;">programming</a>} 
+
+            
+    ::
+    #<a href="&#x2F;tags&#x2F;c&#x2F;">C++</a>
+        
+    #<a href="&#x2F;tags&#x2F;multithreading&#x2F;">multithreading</a>
+        
+    
+            
+        
+    </div>
+
+
+
+        
+
+        <div class="post-content">
+            <p>I wanted to use a threadpool for a certain project of mine, and there were a lot of implementations of them on github, but many of them simply pasted the code with little explanation, and there weren’t many tutorials (<em>easy</em> tutorials) that I could follow right up.</p>
+<p>I eventually managed to make a simple one for myself, and is good enough for almost all personal projects I do. In this blog, I’ll help you recreate my code, explaining stuff that someone who doesn’t know much about threadpooling (and multithreading in general) can still follow. I do assume some familiarity with C++ coding, and also with some standard libraries like <code>iostream</code> and <code>vector</code> and concept of classes.</p>
+<p>This tutorial isn’t meant for people looking for super-optimized multithreaded calculations. For that there are much better libraries out there.</p>
+<p>If you are wondering how it’s different from other tutorials, well it’s pretty much same really 😅. I just go in depth and try do explain every bit of code I feel new C++ programmers might not know. By the end you’ll have made a simple but useful threadpool header file, which you can use practically anywhere.</p>
+<p>You can find my code for reference <a href="https://github.com/abhikjain360/threadpool">here</a>.</p>
+<h3 id="why-multithread">Why multithread?<a class="zola-anchor" href="#why-multithread" aria-label="Anchor link for: why-multithread">§</a>
+</h3>
+<p>The answer is obvious. All modern (by modern I mean by all PCs and laptops since 2005) computers have more than one core, let’s use them all! It’s faster, and a better use of resources. There might be some cases where you can’t run processes in parallel, like the new process depending upon the output of current one. But those are the odd ones. As we’ll see, multithreading can outperform simple code even for small test cases. There are many instances where algorithms by design are meant to be run in parallel (like matrix multiplication where each element of resultant matrix can be calculated independently of other, allowing us to compute then in parallel).</p>
+<h3 id="why-use-a-threadpool">Why use a threadpool?<a class="zola-anchor" href="#why-use-a-threadpool" aria-label="Anchor link for: why-use-a-threadpool">§</a>
+</h3>
+<p>Though your CPU can run a lot more <em>virtual</em> threads than number of cores it has, that doesn’t mean all those threads run in parallel. Each new thread waits for previous threads to finish. If there are no <em>physical</em> threads free, it’ll have to wait. Also assigning these <em>virtual</em> threads is a rather expensive task. It often happens that if we assign threads carelessly without bothering about how much threads are we actually creating, any benefit multithreading could provide would become insignificant compared to sheer cost of assigning so many threads.</p>
+<p>Threadpooling is creating a fixed number of threads and then re-using them again &amp; again. As we’ll see, this outperforms assigning random threads even in small test cases (which I mentioned can outperform normal code).</p>
+<h2 id="introduction">Introduction<a class="zola-anchor" href="#introduction" aria-label="Anchor link for: introduction">§</a>
+</h2>
+<h3 id="race-condition">Race Condition<a class="zola-anchor" href="#race-condition" aria-label="Anchor link for: race-condition">§</a>
+</h3>
+<p>Let’s imagine 2 threads running is parallel, and both have access to a single variable <em>i</em>, and modify it by incrementing it by 1, without caring whether the other thread is also using <em>i</em> during the incrementing. Thus both have access to it without any bounds or checks. This is a really bad situation. Guess why?</p>
+<p>Assume <em>i</em> has initial value 5. Let’s imagine thread 1 accessed <em>i</em> and made a copy of it. At the same time thread 2 also made a copy of <em>i</em>. Then both threads incremented <em>i</em> by one making its copy in each thread equal to 6, and then putting the value back in <em>i</em>. Now the value of <em>i</em> is 6, but what we wanted to do was to each thread to increment value once, thus resulting in <em>i</em> being seven. But because threads did the increment without being aware of other threads, <em>i</em> only got incremented once. This situtation is called <em>race condition</em>, and is often not desirable.</p>
+<h3 id="mutex-locks-and-atomic-types">Mutex Locks and Atomic types<a class="zola-anchor" href="#mutex-locks-and-atomic-types" aria-label="Anchor link for: mutex-locks-and-atomic-types">§</a>
+</h3>
+<p>Mutex is a way to ensure that some data/resource that is being shared between threads can be used by only one thread at a time. Thus, it helps with the race condition. Basically, when a mutex lock is put on a certain part of code, that part of code can be executed by only one thread at once. By putting locks around the code where the variables shared by multiple threads are accessed/changed, we can prevent race condition.</p>
+<p>Mutex locks can used in cpp using the <code>#include &lt;mutex&gt;</code>. There are various mutex locks available in the library, and each one depends upon the use case. After initializing a mutex variable, one can different locks on it.</p>
+<p>One of the most basic ways is to directly use the <code>lock</code>  and <code>unlock</code> function of the mutex. <code>lock_guard</code> is also an option which unlock as soon as it goes out of scope, but it has nearly deprecated and <code>scoped_lock</code> is used.</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;mutex&gt;
+
+</span><span style="color:#fa5c4b;">int </span><span style="color:#8ec07c;">main</span><span style="color:#fdf4c1aa;">() {
+	std::mutex mu;
+
+	</span><span style="font-style:italic;color:#928374;">// locking using mutex&#39;s method
+</span><span style="color:#fdf4c1aa;">	mu.</span><span style="color:#fdf4c1;">lock</span><span style="color:#fdf4c1aa;">();
+		</span><span style="font-style:italic;color:#928374;">// code
+</span><span style="color:#fdf4c1aa;">	mu.</span><span style="color:#fdf4c1;">unlock</span><span style="color:#fdf4c1aa;">();
+
+	</span><span style="font-style:italic;color:#928374;">// locking using lock_guard
+	</span><span style="color:#fdf4c1aa;">{
+		std::lock_guard&lt;std::mutex&gt; </span><span style="color:#fdf4c1;">lockGuard(mu)</span><span style="color:#fdf4c1aa;">;
+		</span><span style="font-style:italic;color:#928374;">// code
+
+	</span><span style="color:#fdf4c1aa;">} </span><span style="font-style:italic;color:#928374;">//goes out of scope here
+
+	// locking using scoped_lock (Since C++17)
+	</span><span style="color:#fdf4c1aa;">{
+		std::scoped_lock&lt;std::mutex&gt; </span><span style="color:#fdf4c1;">scopeLock(mu)</span><span style="color:#fdf4c1aa;">;
+		</span><span style="font-style:italic;color:#928374;">// code
+	</span><span style="color:#fdf4c1aa;">} </span><span style="font-style:italic;color:#928374;">//goes out of scope here
+
+	</span><span style="color:#fa5c4b;">return </span><span style="color:#d3869b;">0</span><span style="color:#fdf4c1aa;">;
+}
+</span></code></pre>
+<p>For our pupose, we’ll use <code>unique_lock</code>, which is very similiar to <code>lock_guard</code> as it is required by conditional variable in wait call (will be discussed in more detail later).</p>
+<p>Note thread although using locks ensures thread safety, they are huge overhead. Sometimes, running on multiple threads might be slower than running on single thread if we are locking and unlocking too much. Thus, try to use locks as less often as you can, and don’t do heavy things when lock is on, or else your program might loose a lot of speed while consuming much more resources.</p>
+<p>Another way to ensure thread safety is use <em>atomic types</em>, available since C++17.  We can wrap the shared variable with an atomic type, and it’ll automatically make sure that one thread accesses/modifies it at time, allowing us to write <em>lock-free</em> code. Using atomic types, is arguably more easy and faster than using locks. But using atomic types come with it’s own set of complications (like how it stores the entire variable in local cache), and we don’t want to get into it now.</p>
+<h3 id="condition-variables">Condition variables<a class="zola-anchor" href="#condition-variables" aria-label="Anchor link for: condition-variables">§</a>
+</h3>
+<p>Conditional variables allow us to control the execution and timing of threads based on certain conditions. This allows for a greater control on order of execution of commands, which would otherwise be out of control, again possibly leading to race conditions. Conditional variables allow us to send <em>notifications</em> to threads, using the <code>notify_one</code> and <code>notify_all</code> functions.</p>
+<p>For example, we have 2 variable <code>i</code> and <code>j</code>, and we want that <code>i</code> gets incremented only after <code>j</code> is greater than 5. We can create a mutex, and put it under a lock. This lock will be under a condtional variable and wait till condition is met.</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;thread&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;mutex&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;conditional_variable&gt;
+
+</span><span style="color:#fa5c4b;">int</span><span style="color:#fdf4c1aa;"> j </span><span style="color:#fe8019;">= </span><span style="color:#d3869b;">0</span><span style="color:#fdf4c1aa;">, i </span><span style="color:#fe8019;">= </span><span style="color:#d3869b;">0</span><span style="color:#fdf4c1aa;">;
+std::mutex mu;
+std::conditional_variable cond;
+
+</span><span style="color:#fa5c4b;">void </span><span style="color:#8ec07c;">waitForCond</span><span style="color:#fdf4c1aa;">() {
+	std::unique_lock&lt;std::mutex&gt; </span><span style="color:#fdf4c1;">lock(mu)</span><span style="color:#fdf4c1aa;">;
+	cond.</span><span style="color:#fdf4c1;">wait</span><span style="color:#fdf4c1aa;">(lock);
+
+	i </span><span style="color:#fe8019;">+= </span><span style="color:#d3869b;">1</span><span style="color:#fdf4c1aa;">;
+}
+
+</span><span style="color:#fa5c4b;">void </span><span style="color:#8ec07c;">increment_j</span><span style="color:#fdf4c1aa;">() {
+	</span><span style="color:#fa5c4b;">for </span><span style="color:#fdf4c1aa;">(</span><span style="color:#fa5c4b;">int</span><span style="color:#fdf4c1aa;"> k  </span><span style="color:#fe8019;">= </span><span style="color:#d3869b;">0</span><span style="color:#fdf4c1aa;">; k </span><span style="color:#fe8019;">&lt; </span><span style="color:#d3869b;">10</span><span style="color:#fdf4c1aa;">; </span><span style="color:#fe8019;">++</span><span style="color:#fdf4c1aa;">k) {
+		j </span><span style="color:#fe8019;">+= </span><span style="color:#d3869b;">1</span><span style="color:#fdf4c1aa;">;
+		</span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1aa;">(j </span><span style="color:#fe8019;">&gt; </span><span style="color:#d3869b;">5</span><span style="color:#fdf4c1aa;">)
+			cond.</span><span style="color:#fdf4c1;">notify_one</span><span style="color:#fdf4c1aa;">();
+	}
+}
+
+</span><span style="color:#fa5c4b;">int </span><span style="color:#8ec07c;">main</span><span style="color:#fdf4c1aa;">() {
+	std::thread </span><span style="color:#fdf4c1;">worker1(waitForCond)</span><span style="color:#fdf4c1aa;">;
+	std::thread </span><span style="color:#fdf4c1;">worker2(increment_j)</span><span style="color:#fdf4c1aa;">;
+
+	</span><span style="color:#fa5c4b;">return </span><span style="color:#d3869b;">0</span><span style="color:#fdf4c1aa;">;
+}
+
+</span></code></pre>
+<p>We will use condition variables in threadpool to keep the created threads on hold until a new task has been alloted, after which we can take a task of the the task list and run it.</p>
+<h2 id="let-s-start">Let’s start!<a class="zola-anchor" href="#let-s-start" aria-label="Anchor link for: let-s-start">§</a>
+</h2>
+<p>First we’ll create a project root directory, which I name threadpool (rather unimaginative, I know). In this we create a <code>threadpool.h</code> header file. First some headers.</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fa5c4b;">#pragma</span><span style="color:#fdf4c1aa;"> once
+
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;thread&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;vector&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;queue&gt;
+</span></code></pre>
+<p>The <code>#pragma once</code> at the top is to avoid including library again in projects having more than a few files. <code>thread</code> library allows us to access the CPU threads. We will use a vector to store our execution threads, and a queue to store our tasks as functions.</p>
+<p>Let’s create a class named threadpool. We define an alias for function types, and call it <code>Task</code>. In order to define <code>Task</code>, we need to include <code>functional</code> library as well.</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fa5c4b;">#pragma</span><span style="color:#fdf4c1aa;"> once
+
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;thread&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;vector&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;queue&gt;
+</span><span style="color:#fa5c4b;">#include </span><span style="color:#b8bb26;">&lt;functional&gt;
+
+</span><span style="color:#fa5c4b;">class </span><span style="color:#8ec07c;">threadpool </span><span style="color:#fdf4c1aa;">{
+  </span><span style="color:#fa5c4b;">public</span><span style="color:#fdf4c1aa;">:
+	</span><span style="color:#fa5c4b;">using </span><span style="color:#8ec07c;">Task </span><span style="color:#fe8019;">=</span><span style="color:#fdf4c1aa;"> std::function&lt;</span><span style="color:#fa5c4b;">void</span><span style="color:#fdf4c1aa;">()&gt;;
+
+  </span><span style="color:#fa5c4b;">private</span><span style="color:#fdf4c1aa;">:
+	std::vector&lt;std::thread&gt; threads;
+	std::queue&lt;Task&gt; tasks;
+};
+</span></code></pre>
+<p>Creating a execution thread is rather simple. We can create one by writing</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fdf4c1aa;">std::</span><span style="color:#8ec07c;">thread</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fdf4c1;">function_pointer</span><span style="color:#fdf4c1aa;">, args</span><span style="color:#fe8019;">...</span><span style="color:#fdf4c1aa;">)
+</span></code></pre>
+<p>where <code>function_pointer</code> is the pointer to the function you want to give to threadpool, and corresponding arguments. A point to keep in mind is that when creating a thread, it’ll <em>move</em> the non-primitive data types, meaning you no longer would be able to access them. So if there is an variable/object you want to use again, you have to pass a reference to that object using <code>std::ref()</code>.</p>
+<p>Whenever we run a C++ application, we atleast use 1 thread, executing the code in the <code>main</code> function, one line at a time. This is called <em>main threads</em>. When we run a C++ application which uses multiple threads, there will still be 1 main thread, which starts when the application starts, and stops when the application stops. Now this main thread runs independent of other threads that we create during the execution of the application, called <em>child threads</em>. But as main function runs on independent thread, it won’t wait for other threads to finish, and terminate the application, unless spefically asked to wait for other threads to finish.</p>
+<p>We can ask main thread to wait for other threads by using <code>join()</code>. This can be done by saving the construction of <code>std::thread</code> in a variable, and then joining it.</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fdf4c1aa;">std::thread </span><span style="color:#8ec07c;">worker</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fdf4c1;">function_pointer</span><span style="color:#fdf4c1aa;">, args</span><span style="color:#fe8019;">...</span><span style="color:#fdf4c1aa;">);
+worker.</span><span style="color:#fdf4c1;">join</span><span style="color:#fdf4c1aa;">();
+</span></code></pre>
+<p>So in our constructor of threadpool, we need to create a bunch of threads, push them in the <code>std::vector&lt;std::thread&gt; threads</code>, and in our deconstructor we need to join all these vectors. We’ll also create a function to add Tasks at the back queue <code>tasks</code> and pop out tasks from front, giving it to each thread.</p>
+<p>One question remains, that when we create threads to push back in <code>threads</code> vector, what function and arguments are we going to pass to constructor of the <code>std::thread</code>?</p>
+<p>We can not simply pass the task in front of queue <code>tasks</code>, for it’ll create a thread for each task. That is no different than how one will use thread without a threadpool. Instead, we’ll pass a function, which on finding the queue of tasks non-empty, executes the task at front of the queue, and then pops it off so that it doesn’t get executed more than once by different threads, and keeps on running until the threadpool object is not destroyed. That’s it. This is the most important part of threadpooling.</p>
+<p>Another thing to keep in mind is to avoid a problem which comes with using multiple threads at once, the problem of data races. But we will for now pretend that such a problem doesn’t exist, and simply focus on making our threadpool class. Note that threadpool won’t be usable until be actually use mutex and remove possibility of data races.</p>
+<p>Also from now on instead of writing entire program when we update our code, I’ll just put the updated part with enough context to let you know where to put the code, to make things easy for both of us.</p>
+<h3 id="the-thread-manager-function">The thread_manager function<a class="zola-anchor" href="#the-thread-manager-function" aria-label="Anchor link for: the-thread-manager-function">§</a>
+</h3>
+<p>Before we write the constructor and deconstructor for the threadpool class, we’ll write the function to pass onto the threads we create. This function will execute functions from the tasks queue, as mentioned before. We also want to be able to stop thread when we destroy the threadpool object, we’ll create a new variable <code>bool stopvar</code> which will keep track of when to stop the thread. We will set it to <code>false</code> when creating threadpool.</p>
+<pre style="background-color:#282828;">
+<code class="language-cpp" data-lang="cpp"><span style="color:#fa5c4b;">class </span><span style="color:#8ec07c;">threadpool </span><span style="color:#fdf4c1aa;">{
+  </span><span style="color:#fa5c4b;">private</span><span style="color:#fdf4c1aa;">:
+	</span><span style="color:#fa5c4b;">void </span><span style="color:#8ec07c;">thread_manager</span><span style="color:#fdf4c1aa;">();
+
+	std::vector&lt;std::thread&gt; threads;
+	std::queue&lt;Task&gt; tasks;
+	</span><span style="color:#fa5c4b;">bool</span><span style="color:#fdf4c1aa;"> stopvar;
+};
+
+</span><span style="color:#fa5c4b;">void </span><span style="color:#fdf4c1aa;">threadpool::</span><span style="color:#8ec07c;">thread_manager</span><span style="color:#fdf4c1aa;">() {
+	</span><span style="color:#fa5c4b;">while </span><span style="color:#fdf4c1aa;">(</span><span style="color:#d3869b;">true</span><span style="color:#fdf4c1aa;">) {
+		Task task;
+		{
+			</span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1aa;">(stopvar </span><span style="color:#fe8019;">&amp;&amp;</span><span style="color:#fdf4c1aa;"> tasks.</span><span style="color:#fdf4c1;">empty</span><span style="color:#fdf4c1aa;">()) </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+
+			task </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">std::move(tasks.front())</span><span style="color:#fdf4c1aa;">;
+			tasks.</span><span style="color:#fdf4c1;">pop</span><span style="color:#fdf4c1aa;">();
+		}
+		</span><span style="color:#fdf4c1;">task()</span><span style="color:#fdf4c1aa;">;
+	}
+}
+
+</span></code></pre>
+        </div>
+        
+    
+</div></div>
+            
+    <div class="pagination">
+        <div class="pagination__buttons">
+            </div>
+    </div>
+<footer class="footer">
+                    <div class="footer__inner"><div class="copyright">
+            <span>Powered by <a href="https://www.getzola.org/">Zola</a></span>
+        </div>
+    <script type="text/javascript" src="&#x2F;assets&#x2F;js&#x2F;main.js"></script>
+</div>
+                    
+
+                </footer></div>
+    </center>
+    </body>
+</html>

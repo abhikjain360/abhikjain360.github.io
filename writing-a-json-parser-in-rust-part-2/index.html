@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/slideout/1.0.1/slideout.min.js"></script>
+	
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.css" integrity="sha384-9eLZqc9ds8eNjO3TmqPeYcDj8n+Qfa4nuSiGYa6DjLNcv9BtN69ZIulL9+8CqC9Y" crossorigin="anonymous">
+
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.js" integrity="sha384-K3vbOmF2BtaVai+Qk37uypf7VrgBubhQreNQe9aGsz9lB63dIFiQVlJbr92dw2Lx" crossorigin="anonymous"></script>
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/mathtex-script-type.min.js" integrity="sha384-zWYbd0NBwgTsgIdFKVprSfTh1mbMPe5Hz1X3yY4Sd1h/K1cQoUe36OGwAGz/PcDy" crossorigin="anonymous"></script>
+	    
+			<script defer src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/auto-render.min.js" integrity="sha384-kmZOZB5ObwgQnS/DuDg6TScgOiWWBiVt0plIRkZCmE6rDZGrEOQeHM5PcHi+nyqe" crossorigin="anonymous"
+	        onload="renderMathInElement(document.body);"></script>
+	    
+	
+
+			
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E22MG5SJXW"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-E22MG5SJXW');
+</script>
+
+    <title>Writing a JSON Parser in Rust: Part 2 - Abhik Jain</title>
+    
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="description" content="My blog about tech and stuff"/>
+
+    <meta property="og:title" content="
+    Abhik Jain -&nbsp;Writing a JSON Parser in Rust: Part 2" />
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="&#x2F;writing-a-json-parser-in-rust-part-2&#x2F;"/>
+    <meta property="og:description" content="My blog about tech and stuff"/>
+    <link rel="stylesheet" href="&#x2F;style.css">
+    <link rel="stylesheet" href="&#x2F;color&#x2F;gruvbox.css">
+<link rel="alternate" type="application/rss+xml" title="Abhik Jain RSS" href="&#x2F;rss.xml"></head>
+    <body>
+    <center>
+        <div class="container">
+<header class="header">
+    <div class="header__inner">
+        <div class="header__logo">
+            <a href="&#x2F;">
+    <div class="logo">
+        Abhik Jain
+    </div>
+</a>
+        </div>
+        <div class="menu-trigger">menu</div>
+    </div>
+    
+    <nav class="menu">
+        <ul class="menu__inner menu__inner--desktop">
+            
+            
+                    <li>
+                        <a href="&#x2F;about">about</a>
+                    </li>
+                
+                    <li>
+                        <a href="&#x2F;contact">contact</a>
+                    </li>
+                
+            </ul>
+
+        <ul class="menu__inner menu__inner--mobile">
+            
+        <li>
+            <a href="&#x2F;about">about</a>
+        </li>
+        <li>
+            <a href="&#x2F;contact">contact</a>
+        </li>
+        </ul>
+    </nav>
+
+    </header>
+<div class="content"><div class="post">
+        <h1 class="post-title">
+            <a href="&#x2F;writing-a-json-parser-in-rust-part-2&#x2F;">Writing a JSON Parser in Rust: Part 2</a>
+        </h1>
+        
+    <div class="post-meta">
+        <span class="post-date">2021.05.02
+                </span>
+
+        <span class="post-author">
+    ::
+    Abhik Jain</span>
+
+        
+
+    
+    :: {<a href="&#x2F;categories&#x2F;programming&#x2F;">programming</a>} 
+
+            
+    ::
+    #<a href="&#x2F;tags&#x2F;rust&#x2F;">Rust</a>
+        
+    #<a href="&#x2F;tags&#x2F;json&#x2F;">JSON</a>
+        
+    
+            
+        
+    </div>
+
+
+
+        
+
+        <div class="post-content">
+            <p>In this blog I will write methods to parse JSON, in continuation of the <a href="https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/">previous blog</a>. So far, our <code>parser.rs</code> looks like</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// src/parser.rs
+
+</span><span style="color:#fa5c4b;">use </span><span style="color:#fdf4c1aa;">std::iter::Peekable;
+</span><span style="color:#fa5c4b;">use </span><span style="color:#fdf4c1aa;">std::str::Chars;
+
+</span><span style="color:#fa5c4b;">pub struct </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fdf4c1;">src</span><span style="color:#fdf4c1aa;">: Peekable&lt;Chars&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt;&gt;,
+}
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">pub fn </span><span style="color:#8ec07c;">new</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fdf4c1;">src</span><span style="color:#fdf4c1aa;">: </span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">&#39;a str</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fa5c4b;">Self </span><span style="color:#fdf4c1aa;">{
+        Parser {
+            src: src.</span><span style="color:#fabd2f;">chars</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">peekable</span><span style="color:#fdf4c1aa;">(),
+        }
+    }
+}
+</span></code></pre>
+<p>But before we write our parser, let us lay the groundwork of error handling. It is not guaranteed the string passed on the the parser to parse is valid JSON. Instead of simply stopping the program we should give the user of our code some options (pun intended, for those who know Rust) to handle the errors. For this we create again create a enum, whose variants will tell the user which type of error was encountered.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// src/parser.rs
+
+</span><span style="color:#fdf4c1aa;">#[</span><span style="color:#fdf4c1;">derive</span><span style="color:#fdf4c1aa;">(Debug)]
+</span><span style="color:#fa5c4b;">pub enum </span><span style="color:#8ec07c;">ParseError </span><span style="color:#fdf4c1aa;">{
+    UnexpectedEOF,
+    UnexpectedChar(</span><span style="color:#fa5c4b;">char</span><span style="color:#fdf4c1aa;">),
+    ExpectedChar(</span><span style="color:#fa5c4b;">char</span><span style="color:#fdf4c1aa;">),
+}
+</span></code></pre>
+<p>The syntax enum shouldn’t surprise you any more, because we haven’t introduced anything new since <a href="https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/#value-enum">when we defined Values enum</a>. The errors mentioned here are the only ones I am going to use, but if you wish to be more detailed about the errors, feel free to add your own variants and change the following code snippets accordingly.</p>
+<h1 id="next-and-peek"><code>next</code> and <code>peek</code><a class="zola-anchor" href="#next-and-peek" aria-label="Anchor link for: next-and-peek">§</a>
+</h1>
+<p>We can call <code>next</code> on and iterator to consume the next item, and <code>peek</code> to just get a reference to the next item. But these functions don’t directly return the item/reference, but instead wrap the return item in <code>Option&lt;T&gt;</code>, which is an enum defined in standard library as:</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="color:#fa5c4b;">enum </span><span style="color:#8ec07c;">Option</span><span style="color:#fdf4c1aa;">&lt;T&gt; {
+    </span><span style="color:#fabd2f;">Some</span><span style="color:#fdf4c1aa;">(T),
+    </span><span style="color:#fabd2f;">None
+</span><span style="color:#fdf4c1aa;">}
+</span></code></pre>
+<p>This allows us (in most cases, <em>forces</em> us) to handle errors explicitly. There are ways to easily unwrap the function, using <code>unwrap</code> of the <code>?</code> operator. So, if we define</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="color:#fa5c4b;">use crate</span><span style="color:#fdf4c1aa;">::parser::Parser;
+</span><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> parser </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1aa;">Parser::new(</span><span style="color:#fa5c4b;">r</span><span style="color:#b8bb26;">#&quot;{ &quot;name&quot;: &quot;Mr. Json&quot; }&quot;#</span><span style="color:#fdf4c1aa;">);
+</span></code></pre>
+<p>then we can access the characters with</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="color:#fabd2f;">assert_eq!</span><span style="color:#fdf4c1aa;">(parser.src.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">(), </span><span style="color:#b8bb26;">&#39;{&#39;</span><span style="color:#fdf4c1aa;">);
+</span><span style="color:#fabd2f;">assert_eq!</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">*</span><span style="color:#fdf4c1aa;">parser.src.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">(), </span><span style="color:#b8bb26;">&#39; &#39;</span><span style="color:#fdf4c1aa;">);
+</span></code></pre>
+<p>Note that we had to dereference the pointer when using <code>peek()</code> as it returns a reference to <code>char</code>, and we Rust won’t let us compare a <code>&amp;char</code> to a <code>char</code> (which is unsound anyway for most cases). But typing the entire thing everytime we need to access the next character. So we write ourselves 2 helper functions.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// parser.rs
+
+</span><span style="color:#fa5c4b;">impl</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">peek</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">char</span><span style="color:#fdf4c1aa;">, ParseError&gt; {
+        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.src.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">ok_or</span><span style="color:#fdf4c1aa;">(ParseError::UnexpectedEOF)
+    }
+
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">next</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">char</span><span style="color:#fdf4c1aa;">, ParseError&gt; {
+        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.src.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">ok_or</span><span style="color:#fdf4c1aa;">(ParseError::UnexpectedEOF)
+    }
+}
+</span></code></pre>
+<p>The <code>Result&lt;T, E&gt;</code> type is also defined in standard library for error handling. It is similar to <code>Option&lt;T&gt;</code>, except that the error also contains some information, thus there are 2 generics with it.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="color:#fa5c4b;">enum </span><span style="color:#8ec07c;">Result</span><span style="color:#fdf4c1aa;">&lt;T, E&gt; {
+    </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(T),
+    </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(E)
+}
+</span></code></pre>
+<p>I use <code>Result</code> when I want to return some error information as well, otherwise I use <code>Option</code>. But you can use anything you like, though the convention is to use them according to their name, that is <code>Result</code> where you return a “result”.</p>
+<h3 id="writing-the-parsers-finally">Writing the parsers, finally<a class="zola-anchor" href="#writing-the-parsers-finally" aria-label="Anchor link for: writing-the-parsers-finally">§</a>
+</h3>
+<p>That was a lot of groundwork! But rightly so, because now we can write the parsing methods and not worry about anything else. Note that when actually coding myself I went a lot back and forth in between (I started straight with parser methods, and suffered for it), and the 2 convenience functions we wrote above weren’t there in the original code. So don’t think I am super-smart to have coded things in such perfect order. I just spent a lot of time on it so you don’t have to!</p>
+<p>We will divide the parsing into 3 functions:</p>
+<ul>
+<li><code>skip_whitespaces()</code> will be used, well, skip whitespaces,</li>
+<li><code>parse()</code> will be the function that will be called by user (and thus will be public), and will also deal with anything wrapped in <code>{}</code> and letting the <code>parse_data</code> figure out how to convert things to ke-value pair returing a HaspMap,</li>
+<li><code>parse_data()</code> will deal with the key-value stuff, identify the datatype and returns a tupple of a <em>value</em> and it’s <em>key</em></li>
+</ul>
+<p>Let’s start with the easiest one, <code>skip_whitespaces</code>.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// parser.rs
+
+</span><span style="color:#fa5c4b;">use crate</span><span style="color:#fdf4c1aa;">::values::Value;
+
+</span><span style="color:#fa5c4b;">impl</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">skip_whitespaces</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) {
+        </span><span style="font-style:italic;color:#928374;">// peeking at the next char
+        </span><span style="color:#fa5c4b;">while let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">() {
+            </span><span style="font-style:italic;color:#928374;">// if not whitespace, dont consume it
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">!</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">is_whitespace</span><span style="color:#fdf4c1aa;">() {
+                </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+            }
+            </span><span style="font-style:italic;color:#928374;">// else consume it and move on
+            </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+        }
+    }
+}
+</span></code></pre>
+<p>We simply consume the iterator till we find a character which is not whitespace, and return without consuming the non-whitespace character. Notice the <code>while let</code> pattern matching. The while loop will run till <code>self.peek()</code> does not return an error. We could have handled the case where it returns an error (possibly by returning a <code>Result</code>), but I am not bothering right now. Feel free to do so if you wish.</p>
+<p>Now the following methods are left.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// parser.rs
+
+</span><span style="color:#fa5c4b;">use </span><span style="color:#fdf4c1aa;">std::collections::HashMap;
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">parse_value</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;Value, ParseError&gt; { </span><span style="font-style:italic;color:#928374;">/*TODO*/ </span><span style="color:#fdf4c1aa;">}
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">parse</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;HashMap&lt;</span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">, Value&gt;, ParseError&gt; { </span><span style="font-style:italic;color:#928374;">/*TODO*/ </span><span style="color:#fdf4c1aa;">}
+}
+</span></code></pre>
+<p>The <code>parse_value</code> will return the data that comes after the key, for example in the following JSON:</p>
+<pre style="background-color:#282828;">
+<code class="language-json" data-lang="json"><span style="color:#fdf4c1aa;">{
+    </span><span style="color:#b8bb26;">&quot;name&quot;</span><span style="color:#fdf4c1aa;">: </span><span style="color:#b8bb26;">&quot;Mr. Json&quot;</span><span style="color:#fdf4c1aa;">,
+    </span><span style="color:#b8bb26;">&quot;age&quot;</span><span style="color:#fdf4c1aa;">: </span><span style="color:#d3869b;">19
+</span><span style="color:#fdf4c1aa;">}
+</span></code></pre>
+<p><code>parse_value</code> will deal with <code>&quot;Mr. Json&quot;</code> and <code>19</code>, while rest will be dealt by <code>parse</code> itself.</p>
+<p>Let’s first write the <code>parse()</code> function.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// parser.rs
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">parse</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;HashMap&lt;</span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">, Value&gt;, ParseError&gt; {
+        </span><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> map </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1aa;">HashMap::new();
+
+        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+        </span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? != </span><span style="color:#b8bb26;">&#39;{&#39; </span><span style="color:#fdf4c1aa;">{
+            </span><span style="color:#fa5c4b;">return </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::ExpectedChar(</span><span style="color:#b8bb26;">&#39;{&#39;</span><span style="color:#fdf4c1aa;">));
+        }
+
+        </span><span style="font-style:italic;color:#928374;">// add some code here later
+
+        </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(map)
+    }
+
+}
+</span></code></pre>
+<p>We are creating a new empty HashMap, and returning it. JSON always has to start with <code>'{'</code> so we are checking whether that is the case or not. If the rule is violated, we simply return the error.</p>
+<p>Recall that <code>self.next()</code> returns a <code>Result&lt;Value, ParseError&gt;</code>, so we use the <code>?</code> operator on it. This operator unwraps the value if there are no errors, else it simply transmits the error through the function. We can use <code>?</code> operator only when the function in which it is being called returns the same error type as the error type of the result we are unwrapping. We can also ue the operator to unwrap <code>Option&lt;T&gt;</code>, but then we also need to return an <code>Option</code>.</p>
+<p>We will be using similar pattern throughout this function. I am simply pasting the function here are code is pretty simply once you understand the previous code block. We iterate through the string until we reach <code>'}'</code>, or we encounter an error.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">// parser.rs
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">parse</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;HashMap&lt;</span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">, Value&gt;, ParseError&gt; {
+        </span><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> map </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1aa;">HashMap::new();
+
+        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+        </span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? != </span><span style="color:#b8bb26;">&#39;{&#39; </span><span style="color:#fdf4c1aa;">{
+            </span><span style="color:#fa5c4b;">return </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::ExpectedChar(</span><span style="color:#b8bb26;">&#39;{&#39;</span><span style="color:#fdf4c1aa;">));
+        }
+
+        </span><span style="color:#fa5c4b;">loop </span><span style="color:#fdf4c1aa;">{
+            </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? != </span><span style="color:#b8bb26;">&#39;&quot;&#39; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">return </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::ExpectedChar(</span><span style="color:#b8bb26;">&#39;&quot;&#39;</span><span style="color:#fdf4c1aa;">));
+            }
+
+            </span><span style="font-style:italic;color:#928374;">// getting the key
+            </span><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> ch </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">?</span><span style="color:#fdf4c1aa;">;
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">!</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">is_ascii_alphabetic</span><span style="color:#fdf4c1aa;">() </span><span style="color:#fe8019;">&amp;&amp;</span><span style="color:#fdf4c1aa;"> ch </span><span style="color:#fe8019;">!= </span><span style="color:#b8bb26;">&#39;_&#39; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">return </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::UnexpectedChar(ch));
+            }
+            </span><span style="color:#fa5c4b;">let mut</span><span style="color:#fdf4c1aa;"> ident </span><span style="color:#fe8019;">= </span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">::from(ch);
+            </span><span style="color:#fa5c4b;">while let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">() {
+                </span><span style="color:#fa5c4b;">if</span><span style="color:#fdf4c1aa;"> ch.</span><span style="color:#fabd2f;">is_ascii_alphanumeric</span><span style="color:#fdf4c1aa;">() </span><span style="color:#fe8019;">|| *</span><span style="color:#fdf4c1aa;">ch </span><span style="color:#fe8019;">== </span><span style="color:#b8bb26;">&#39;_&#39; </span><span style="color:#fdf4c1aa;">{
+                    ident </span><span style="color:#fe8019;">+= &amp;</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">to_string</span><span style="color:#fdf4c1aa;">();
+                    </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+                } </span><span style="color:#fa5c4b;">else </span><span style="color:#fdf4c1aa;">{
+                    </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+                }
+            }
+
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? != </span><span style="color:#b8bb26;">&#39;&quot;&#39; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">return </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::ExpectedChar(</span><span style="color:#b8bb26;">&#39;&quot;&#39;</span><span style="color:#fdf4c1aa;">));
+            }
+
+            </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? != </span><span style="color:#b8bb26;">&#39;:&#39; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">return </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::ExpectedChar(</span><span style="color:#b8bb26;">&#39;:&#39;</span><span style="color:#fdf4c1aa;">));
+            }
+
+            </span><span style="font-style:italic;color:#928374;">// getting the value and adding key-value pair to the HashMap
+</span><span style="color:#fdf4c1aa;">            map.</span><span style="color:#fabd2f;">insert</span><span style="color:#fdf4c1aa;">(ident, </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">parse_value</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">?</span><span style="color:#fdf4c1aa;">);
+
+            </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+            </span><span style="font-style:italic;color:#928374;">// Allow single comma even after the last entry
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">*</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? == </span><span style="color:#b8bb26;">&#39;,&#39; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+            }
+
+            </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+            </span><span style="font-style:italic;color:#928374;">// break if closing parenthesis encountered
+            </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">*</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">? == </span><span style="color:#b8bb26;">&#39;}&#39; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+            }
+        }
+
+        </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(map)
+    }
+}
+</span></code></pre>
+<p>Next we write the <code>parse_value()</code> method. Notice that in the <code>parse()</code> method we get call <code>parse_value</code> just after we find <code>':'</code>. Thus we only need to parse the value and not the identifier, and just return the value. But before that we skip any whitespaces that might be there.</p>
+<p>We use Rust’s <code>match</code> statements, which allow us to match against patterns really easily.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">//parser.rs
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">parse_value</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;Value, ParseError&gt; {
+        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+        </span><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> ch </span><span style="color:#fe8019;">= *</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">?</span><span style="color:#fdf4c1aa;">;
+        </span><span style="color:#fa5c4b;">match</span><span style="color:#fdf4c1aa;"> ch {
+            </span><span style="font-style:italic;color:#928374;">// match against all possible characters
+        </span><span style="color:#fdf4c1aa;">}
+    }
+}
+</span></code></pre>
+<p>Rust doesn’t let us get away with matchin against only certain subset of possible cases in <code>match</code>. We need to handle all possible cases. Another thing to keep in mind is that all the arms of <code>match</code> have to return the same datatype, or use the <code>return</code> keyword. Though this won’t be a problem for us.</p>
+<p>I use the following matching logic:</p>
+<ul>
+<li><code>'{'</code> means that it’s a object, and thus we simply call <code>parse()</code> on it.</li>
+<li><code>'['</code> means that it’s a start of an array. We call a loop and call <code>parse_value()</code> on each comma seperated item untill we reach <code>']'</code>.</li>
+<li><code>'&quot;'</code> means it a string. Again we store all the characters until another <code>'&quot;'</code> it reached.</li>
+<li><code>true</code>, <code>false</code>, or <code>null</code> are dealt with seperately.</li>
+<li><code>'0'</code> to <code>'9'</code> means it’s a number of a float. If it contains a decimal dot, then will be considered float alse a number.</li>
+<li>If none matched then return <code>Err(UnexpectedChar)</code>.</li>
+</ul>
+<p>And thus we complete the function.</p>
+<pre style="background-color:#282828;">
+<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#928374;">//parser.rs
+
+</span><span style="color:#fa5c4b;">impl </span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; </span><span style="color:#8ec07c;">Parser</span><span style="color:#fdf4c1aa;">&lt;</span><span style="color:#fa5c4b;">&#39;a</span><span style="color:#fdf4c1aa;">&gt; {
+    </span><span style="color:#fa5c4b;">fn </span><span style="color:#8ec07c;">parse_value</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fe8019;">&amp;</span><span style="color:#fa5c4b;">mut </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">) -&gt; </span><span style="color:#fabd2f;">Result</span><span style="color:#fdf4c1aa;">&lt;Value, ParseError&gt; {
+        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+        </span><span style="color:#fa5c4b;">let</span><span style="color:#fdf4c1aa;"> ch </span><span style="color:#fe8019;">= *</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">?</span><span style="color:#fdf4c1aa;">;
+        </span><span style="color:#fa5c4b;">match</span><span style="color:#fdf4c1aa;"> ch {
+            </span><span style="color:#b8bb26;">&#39;{&#39; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">parse</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">map</span><span style="color:#fdf4c1aa;">(|</span><span style="color:#fdf4c1;">map</span><span style="color:#fdf4c1aa;">| Value::Object(map)),
+            </span><span style="color:#b8bb26;">&#39;[&#39; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+                </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+
+                </span><span style="color:#fa5c4b;">let mut</span><span style="color:#fdf4c1aa;"> v </span><span style="color:#fe8019;">= </span><span style="color:#fabd2f;">Vec</span><span style="color:#fdf4c1aa;">::new();
+
+                </span><span style="color:#fa5c4b;">while let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">() {
+                    </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">*</span><span style="color:#fdf4c1aa;">ch </span><span style="color:#fe8019;">== </span><span style="color:#b8bb26;">&#39;]&#39; </span><span style="color:#fdf4c1aa;">{
+                        </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+                        </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+                    } </span><span style="color:#fa5c4b;">else </span><span style="color:#fdf4c1aa;">{
+                        v.</span><span style="color:#fabd2f;">push</span><span style="color:#fdf4c1aa;">(</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">parse_value</span><span style="color:#fdf4c1aa;">()</span><span style="color:#fe8019;">?</span><span style="color:#fdf4c1aa;">);
+                    }
+
+                    </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">skip_whitespaces</span><span style="color:#fdf4c1aa;">();
+                    </span><span style="color:#fa5c4b;">if let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">() {
+                        </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">*</span><span style="color:#fdf4c1aa;">ch </span><span style="color:#fe8019;">== </span><span style="color:#b8bb26;">&#39;,&#39; </span><span style="color:#fdf4c1aa;">{
+                            </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+                        }
+                    }
+                }
+
+                </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Array(v))
+            }
+            </span><span style="color:#b8bb26;">&#39;&quot;&#39; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+                </span><span style="color:#fa5c4b;">let mut</span><span style="color:#fdf4c1aa;"> s </span><span style="color:#fe8019;">= </span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">::new();
+
+                </span><span style="color:#fa5c4b;">while let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">() {
+                    </span><span style="color:#fa5c4b;">if</span><span style="color:#fdf4c1aa;"> ch </span><span style="color:#fe8019;">== </span><span style="color:#b8bb26;">&#39;&quot;&#39; </span><span style="color:#fdf4c1aa;">{
+                        </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+                    }
+                    s </span><span style="color:#fe8019;">+= &amp;</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">to_string</span><span style="color:#fdf4c1aa;">();
+                }
+
+                </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Str(s))
+            }
+            </span><span style="color:#b8bb26;">&#39;t&#39; </span><span style="color:#fe8019;">| </span><span style="color:#b8bb26;">&#39;f&#39; </span><span style="color:#fe8019;">| </span><span style="color:#b8bb26;">&#39;n&#39; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">let mut</span><span style="color:#fdf4c1aa;"> s </span><span style="color:#fe8019;">= </span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">::from(</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">());
+
+                </span><span style="color:#fa5c4b;">while let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">() {
+                    </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">!</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">is_ascii_alphabetic</span><span style="color:#fdf4c1aa;">() {
+                        </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+                    }
+                    s </span><span style="color:#fe8019;">+= &amp;</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">to_string</span><span style="color:#fdf4c1aa;">();
+                }
+
+                </span><span style="color:#fa5c4b;">match</span><span style="color:#fdf4c1aa;"> s.</span><span style="color:#fabd2f;">as_str</span><span style="color:#fdf4c1aa;">() {
+                    </span><span style="color:#b8bb26;">&quot;true&quot; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Bool(</span><span style="color:#d3869b;">true</span><span style="color:#fdf4c1aa;">)),
+                    </span><span style="color:#b8bb26;">&quot;false&quot; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Bool(</span><span style="color:#d3869b;">false</span><span style="color:#fdf4c1aa;">)),
+                    </span><span style="color:#b8bb26;">&quot;null&quot; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Null),
+                    </span><span style="color:#fe8019;">_ =&gt; </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::UnexpectedChar(ch)),
+                }
+            }
+            </span><span style="color:#b8bb26;">&#39;0&#39;</span><span style="color:#fe8019;">..=</span><span style="color:#b8bb26;">&#39;9&#39; </span><span style="color:#fe8019;">=&gt; </span><span style="color:#fdf4c1aa;">{
+                </span><span style="color:#fa5c4b;">let mut</span><span style="color:#fdf4c1aa;"> s </span><span style="color:#fe8019;">= </span><span style="color:#fabd2f;">String</span><span style="color:#fdf4c1aa;">::from(</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">());
+                </span><span style="color:#fa5c4b;">let mut</span><span style="color:#fdf4c1aa;"> is_float </span><span style="color:#fe8019;">= </span><span style="color:#d3869b;">false</span><span style="color:#fdf4c1aa;">;
+
+                </span><span style="color:#fa5c4b;">while let </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(ch) </span><span style="color:#fe8019;">= </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">peek</span><span style="color:#fdf4c1aa;">() {
+                    </span><span style="color:#fa5c4b;">if </span><span style="color:#fe8019;">*</span><span style="color:#fdf4c1aa;">ch </span><span style="color:#fe8019;">== </span><span style="color:#b8bb26;">&#39;.&#39; </span><span style="color:#fdf4c1aa;">{
+                        is_float </span><span style="color:#fe8019;">= </span><span style="color:#d3869b;">true</span><span style="color:#fdf4c1aa;">;
+                        s </span><span style="color:#fe8019;">+= &amp;</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">to_string</span><span style="color:#fdf4c1aa;">();
+                    } </span><span style="color:#fa5c4b;">else if</span><span style="color:#fdf4c1aa;"> ch.</span><span style="color:#fabd2f;">is_numeric</span><span style="color:#fdf4c1aa;">() {
+                        s </span><span style="color:#fe8019;">+= &amp;</span><span style="color:#fdf4c1aa;">ch.</span><span style="color:#fabd2f;">to_string</span><span style="color:#fdf4c1aa;">();
+                    } </span><span style="color:#fa5c4b;">else </span><span style="color:#fdf4c1aa;">{
+                        </span><span style="color:#fa5c4b;">break</span><span style="color:#fdf4c1aa;">;
+                    }
+                    </span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">();
+                }
+
+                </span><span style="color:#fa5c4b;">if</span><span style="color:#fdf4c1aa;"> is_float {
+                    </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Float(s.</span><span style="color:#fabd2f;">parse</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">()))
+                } </span><span style="color:#fa5c4b;">else </span><span style="color:#fdf4c1aa;">{
+                    </span><span style="color:#fabd2f;">Ok</span><span style="color:#fdf4c1aa;">(Value::Number(s.</span><span style="color:#fabd2f;">parse</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">()))
+                }
+            }
+            </span><span style="color:#fe8019;">_ =&gt; </span><span style="color:#fabd2f;">Err</span><span style="color:#fdf4c1aa;">(ParseError::UnexpectedChar(</span><span style="color:#fdf4c1;">self</span><span style="color:#fdf4c1aa;">.</span><span style="color:#fabd2f;">next</span><span style="color:#fdf4c1aa;">().</span><span style="color:#fabd2f;">unwrap</span><span style="color:#fdf4c1aa;">())),
+        }
+    }
+}
+</span></code></pre>
+        </div>
+        
+    
+</div></div>
+            
+    <div class="pagination">
+        <div class="pagination__buttons">
+            </div>
+    </div>
+<footer class="footer">
+                    <div class="footer__inner"><div class="copyright">
+            <span>Powered by <a href="https://www.getzola.org/">Zola</a></span>
+        </div>
+    <script type="text/javascript" src="&#x2F;assets&#x2F;js&#x2F;main.js"></script>
+</div>
+                    
+
+                </footer></div>
+    </center>
+    </body>
+</html>
