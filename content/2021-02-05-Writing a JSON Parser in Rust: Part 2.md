@@ -109,6 +109,8 @@ Let's start with the easiest one, `skip_whitespaces`.
 ```rust
 // parser.rs
 
+use crate::values::Value;
+
 impl<'a> Parser<'a> {
     fn skip_whitespaces(&mut self) {
         // peeking at the next char
@@ -246,7 +248,129 @@ impl <'a> Parser<'a> {
 }
 ```
 
+Next we write the `parse_value()` method. Notice that in the `parse()` method we get call `parse_value` just after we find `':'`. Thus we only need to parse the value and not the identifier, and just return the value. But before that we skip any whitespaces that might be there.
 
+We use Rust's `match` statements, which allow us to match against patterns really easily.
+
+```rust
+//parser.rs
+
+impl <'a> Parser<'a> {
+	fn parse_value(&mut self) -> Result<Value, ParseError> {
+		self.skip_whitespaces();
+
+        let ch = *self.peek()?;
+        match ch {
+			// match against all possible characters
+		}
+	}
+}
+```
+
+Rust doesn't let us get away with matchin against only certain subset of possible cases in `match`. We need to handle all possible cases. Another thing to keep in mind is that all the arms of `match` have to return the same datatype, or use the `return` keyword. Though this won't be a problem for us.
+
+I use the following matching logic:
+
+- `'{'` means that it's a object, and thus we simply call `parse()` on it.
+- `'['` means that it's a start of an array. We call a loop and call `parse_value()` on each comma seperated item untill we reach `']'`.
+- `'"'` means it a string. Again we store all the characters until another `'"'` it reached.
+- `true`, `false`, or `null` are dealt with seperately.
+- `'0'` to `'9'` means it's a number of a float. If it contains a decimal dot, then will be considered float alse a number.
+- If none matched then return `Err(UnexpectedChar)`.
+
+And thus we complete the function.
+
+```rust
+//parser.rs
+
+impl <'a> Parser<'a> {
+    fn parse_value(&mut self) -> Result<Value, ParseError> {
+        self.skip_whitespaces();
+
+        let ch = *self.peek()?;
+        match ch {
+            '{' => self.parse().map(|map| Value::Object(map)),
+            '[' => {
+                self.next().unwrap();
+                self.skip_whitespaces();
+
+                let mut v = Vec::new();
+
+                while let Ok(ch) = self.peek() {
+                    if *ch == ']' {
+                        self.next().unwrap();
+                        break;
+                    } else {
+                        v.push(self.parse_value()?);
+                    }
+
+                    self.skip_whitespaces();
+                    if let Ok(ch) = self.peek() {
+                        if *ch == ',' {
+                            self.next().unwrap();
+                        }
+                    }
+                }
+
+                Ok(Value::Array(v))
+            }
+            '"' => {
+                self.next().unwrap();
+                let mut s = String::new();
+
+                while let Ok(ch) = self.next() {
+                    if ch == '"' {
+                        break;
+                    }
+                    s += &ch.to_string();
+                }
+
+                Ok(Value::Str(s))
+            }
+            't' | 'f' | 'n' => {
+                let mut s = String::from(self.next().unwrap());
+
+                while let Ok(ch) = self.next() {
+                    if !ch.is_ascii_alphabetic() {
+                        break;
+                    }
+                    s += &ch.to_string();
+                }
+
+                match s.as_str() {
+                    "true" => Ok(Value::Bool(true)),
+                    "false" => Ok(Value::Bool(false)),
+                    "null" => Ok(Value::Null),
+                    _ => Err(ParseError::UnexpectedChar(ch)),
+                }
+            }
+            '0'..='9' => {
+                let mut s = String::from(self.next().unwrap());
+                let mut is_float = false;
+
+                while let Ok(ch) = self.peek() {
+                    if *ch == '.' {
+                        is_float = true;
+                        s += &ch.to_string();
+                    } else if ch.is_numeric() {
+                        s += &ch.to_string();
+                    } else {
+                        break;
+                    }
+                    self.next().unwrap();
+                }
+
+                if is_float {
+                    Ok(Value::Float(s.parse().unwrap()))
+                } else {
+                    Ok(Value::Number(s.parse().unwrap()))
+                }
+            }
+            _ => Err(ParseError::UnexpectedChar(self.next().unwrap())),
+        }
+    }
+}
+```
 
 
 [Part 1]: https://abhikjain360.github.io/writing-a-json-parser-in-rust-part-1/
